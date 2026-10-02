@@ -1,0 +1,555 @@
+<script>
+(function () {
+  'use strict';
+  const B = window.BOOT;
+  const U = window.UBIGEO;
+  const $ = (id) => document.getElementById(id);
+  const form = $('form');
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const estado = {
+    archivos: [],        // { file, nombre, mime, tamano, preview, base64 }
+    origen: 'MAPA',      // GPS | MAPA | BUSQUEDA | MANUAL
+    envio: null,         // { id, uploadToken, subidos } — permite reintentar sin duplicar el caso
+    tocados: new Set()   // campos que el vendedor ya visitó (validación "tarde", no mientras escribe)
+  };
+
+  /* Descripción corta por tipo de caso (si el catálogo trae otros valores, se muestran sin texto). */
+  const AYUDA_TIPO = {
+    'Sin cobertura': 'One Touch / APP no muestra cobertura en la dirección.',
+    'Sin factibilidad': 'Hay cobertura, pero la instalación no es factible.'
+  };
+
+  /* ======================= Pasos y validaciones ======================= */
+
+  const BLOQUES = [
+    { id: 'asesor', nombre: 'Tus datos', campos: ['canal', 'codigoAsesor', 'nombreAsesor', 'correoAsesor', 'telefonoAsesor'] },
+    { id: 'cliente', nombre: 'Cliente', campos: ['tipoCliente', 'dniCliente'] },
+    { id: 'direccion', nombre: 'Dirección', campos: ['departamento', 'provincia', 'distrito', 'tipoVia', 'nombreVia', 'numero', 'tipoEdificacion'] },
+    { id: 'ubicacion', nombre: 'Ubicación', campos: ['ubicacion'] },
+    { id: 'caso', nombre: 'El caso', campos: ['tipoCaso', 'descripcion'] },
+    { id: 'evidencia', nombre: 'Evidencia', campos: ['archivos'] }
+  ];
+
+  const val = (id) => ($(id) ? $(id).value.trim() : '');
+  const radio = (name) => { const r = form.querySelector('input[name="' + name + '"]:checked'); return r ? r.value : ''; };
+
+  /** Cada validador devuelve '' si está bien o el mensaje (en voz de la interfaz, accionable). */
+  const VALIDAR = {
+    canal: () => val('canal') ? '' : 'Elige tu canal de venta.',
+    codigoAsesor: () => !val('codigoAsesor') ? 'Ingresa tu código o DNI.'
+      : /^[A-Za-z0-9-]{4,20}$/.test(val('codigoAsesor')) ? '' : 'Usa solo letras, números o guion (4 a 20 caracteres).',
+    nombreAsesor: () => val('nombreAsesor').length >= 3 ? '' : 'Ingresa tu nombre completo.',
+    correoAsesor: () => !val('correoAsesor') ? 'Ingresa tu correo.'
+      : /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(val('correoAsesor')) ? '' : 'Revisa el correo; parece incompleto.',
+    telefonoAsesor: () => /^9\d{8}$/.test(val('telefonoAsesor')) ? '' : 'El celular debe tener 9 dígitos y empezar con 9.',
+    tipoCliente: () => val('tipoCliente') ? '' : 'Elige el tipo de cliente.',
+    dniCliente: () => /^\d{8}$/.test(val('dniCliente')) ? '' : 'El DNI debe tener 8 dígitos.',
+    departamento: () => val('departamento') ? '' : 'Elige el departamento.',
+    provincia: () => val('provincia') ? '' : 'Elige la provincia.',
+    distrito: () => val('distrito') ? '' : 'Elige el distrito.',
+    tipoVia: () => val('tipoVia') ? '' : 'Elige el tipo de vía.',
+    nombreVia: () => val('nombreVia') ? '' : 'Ingresa el nombre de la vía.',
+    numero: () => !val('numero') ? 'Ingresa el número o marca S/N.'
+      : /^(\d{1,6}[A-Za-z]?|S\/N)$/i.test(val('numero')) ? '' : 'Usa solo números (ej. 123 o 123A) o marca S/N.',
+    tipoEdificacion: () => val('tipoEdificacion') ? '' : 'Elige el tipo de edificación.',
+    ubicacion: () => {
+      const lat = parseFloat(val('latitud')), lng = parseFloat(val('longitud'));
+      if (!isFinite(lat) || !isFinite(lng)) return 'Marca la ubicación del inmueble en el mapa.';
+      if (lat < -18.5 || lat > 0.1 || lng < -81.5 || lng > -68.5) return 'Las coordenadas están fuera del Perú.';
+      return '';
+    },
+    tipoCaso: () => radio('tipoCaso') ? '' : 'Elige qué está pasando.',
+    descripcion: () => val('descripcion').length >= 10 ? '' : 'Cuéntale a la Mesa qué ves en One Touch / APP (mínimo 10 caracteres).',
+    archivos: () => estado.archivos.length ? '' : 'Adjunta al menos una captura de pantalla.'
+  };
+
+  /** Elemento al que se ancla el mensaje de error y el foco de cada campo. */
+  const ANCLA = { ubicacion: 'mapa', tipoCaso: 'tipoCaso', archivos: 'soltar' };
+  const FOCO = { ubicacion: 'btnGps', tipoCaso: null, archivos: 'archivos' };
+
+  function elErr(campo) {
+    let p = $('err-' + campo);
+    if (!p) {
+      p = document.createElement('p');
+      p.className = 'err hidden'; p.id = 'err-' + campo;
+      const ancla = $(ANCLA[campo] || campo);
+      const cont = campo === 'ubicacion' ? $('estadoUbicacion') : (ancla.closest('.field') ? ancla.closest('.con-accion') || ancla : ancla);
+      cont.insertAdjacentElement('afterend', p);
+      const control = $(campo);
+      if (control) control.setAttribute('aria-describedby', p.id);
+    }
+    return p;
+  }
+
+  function pintarError(campo, msg) {
+    const p = elErr(campo);
+    p.textContent = msg;
+    p.classList.toggle('hidden', !msg);
+    const control = $(campo);
+    if (control) control.setAttribute('aria-invalid', msg ? 'true' : 'false');
+  }
+
+  /** Valida un campo; solo muestra el error si el vendedor ya pasó por él (o intentó enviar). */
+  function validarCampo(campo) {
+    const msg = VALIDAR[campo]();
+    if (estado.tocados.has(campo)) pintarError(campo, msg);
+    return msg;
+  }
+
+  function campoDe(el) {
+    if (!el) return null;
+    if (el.name === 'tipoCaso') return 'tipoCaso';
+    if (el.id === 'latitud' || el.id === 'longitud') return 'ubicacion';
+    return VALIDAR[el.id] ? el.id : null;
+  }
+
+  // "Premia pronto, castiga tarde": el error aparece al salir del campo y desaparece apenas se corrige.
+  form.addEventListener('focusout', (e) => {
+    const c = campoDe(e.target);
+    if (c && e.target.value !== undefined && (e.target.value !== '' || c === 'tipoCaso')) { estado.tocados.add(c); validarCampo(c); }
+  });
+  form.addEventListener('input', (e) => { const c = campoDe(e.target); if (c) validarCampo(c); actualizarAvance(); actualizarPlaca(); });
+  form.addEventListener('change', (e) => {
+    const c = campoDe(e.target);
+    if (c) { if (e.target.tagName === 'SELECT' || e.target.type === 'radio') estado.tocados.add(c); validarCampo(c); }
+    actualizarAvance(); actualizarPlaca();
+  });
+
+  /* ============================ Avance (riel) ============================ */
+
+  const avance = $('avance');
+  avance.innerHTML = BLOQUES.map((b) =>
+    '<li data-b="' + b.id + '"><button type="button">' +
+      '<span class="punto"><svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 6.2 5 8.5l4.5-5"/></svg></span>' +
+      '<span>' + MSD.esc(b.nombre) + '</span><span class="cuenta"></span></button></li>').join('');
+  avance.addEventListener('click', (e) => {
+    const li = e.target.closest('li[data-b]'); if (!li) return;
+    $('b-' + li.dataset.b).scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+  });
+
+  function actualizarAvance() {
+    let faltan = 0;
+    BLOQUES.forEach((b) => {
+      const pendientes = b.campos.filter((c) => VALIDAR[c]()).length;
+      faltan += pendientes;
+      const listo = pendientes === 0;
+      $('b-' + b.id).classList.toggle('completo', listo);
+      const li = avance.querySelector('li[data-b="' + b.id + '"]');
+      li.classList.toggle('ok', listo);
+      li.classList.toggle('error', !listo && b.campos.some((c) => estado.tocados.has(c) && VALIDAR[c]()));
+      li.querySelector('.cuenta').textContent = listo ? '' : (b.campos.length - pendientes) + '/' + b.campos.length;
+    });
+    $('barraResumen').innerHTML = faltan
+      ? '<b>Faltan ' + faltan + ' dato' + (faltan === 1 ? '' : 's') + '</b><span class="muted">Completa los 6 pasos</span>'
+      : '<b>Listo para enviar</b><span class="muted">Confirma y envía el caso</span>';
+    return faltan;
+  }
+
+  /* ======================= Firma: placa de dirección ======================= */
+
+  function actualizarPlaca() {
+    const via = val('nombreVia');
+    const num = val('numero');
+    $('plTipo').textContent = val('tipoVia') || 'Dirección';
+    const elVia = $('plVia');
+    if (via) { elVia.textContent = via + (num ? ' ' + num : ''); elVia.classList.remove('vacia'); }
+    else { elVia.textContent = 'Tu dirección aparecerá aquí'; elVia.classList.add('vacia'); }
+
+    const extra = [val('manzana') && 'Mz. ' + val('manzana'), val('lote') && 'Lt. ' + val('lote'), val('interior')].filter(Boolean).join(' · ');
+    $('plExtra').textContent = extra;
+
+    const d = distritoActual();
+    $('plLugar').textContent = val('distrito') ? [val('distrito'), val('provincia')].join(' · ') : 'Distrito · Provincia';
+    $('plUbigeo').textContent = 'UBIGEO ' + (d ? d[1] : '——————');
+    const lat = parseFloat(val('latitud')), lng = parseFloat(val('longitud'));
+    $('plCoord').innerHTML = isFinite(lat) && isFinite(lng)
+      ? '<span class="pin">●</span> ' + lat.toFixed(4) + ', ' + lng.toFixed(4)
+      : 'Sin ubicación';
+  }
+
+  /* ============================ Catálogos ============================ */
+
+  function llenarSelect(sel, valores, placeholder) {
+    sel.innerHTML = '';
+    const ph = document.createElement('option');
+    ph.value = ''; ph.textContent = placeholder || 'Elige una opción'; ph.disabled = true; ph.selected = true;
+    sel.appendChild(ph);
+    valores.forEach((v) => { const o = document.createElement('option'); o.value = v; o.textContent = v; sel.appendChild(o); });
+  }
+
+  llenarSelect($('canal'), B.catalogos.canal || []);
+  llenarSelect($('tipoCliente'), B.catalogos.tipoCliente || []);
+  llenarSelect($('tipoVia'), B.catalogos.tipoVia || [], 'Elige');
+  llenarSelect($('tipoEdificacion'), B.catalogos.tipoEdificacion || []);
+
+  $('tipoCaso').innerHTML = (B.catalogos.tipoCaso || []).map((v) =>
+    '<label class="opcion"><input type="radio" name="tipoCaso" value="' + MSD.esc(v) + '">' +
+    '<span class="tile"><b>' + MSD.esc(v) + '</b>' + (AYUDA_TIPO[v] ? '<small>' + MSD.esc(AYUDA_TIPO[v]) + '</small>' : '') + '</span></label>').join('');
+
+  /* ------------------------------ Ubigeo ------------------------------ */
+  const distritoActual = () => ((U[val('departamento')] || {})[val('provincia')] || []).find((x) => x[0] === val('distrito'));
+
+  llenarSelect($('departamento'), Object.keys(U), 'Elige');
+  llenarSelect($('provincia'), [], 'Elige');
+  llenarSelect($('distrito'), [], 'Elige');
+  $('departamento').addEventListener('change', () => {
+    llenarSelect($('provincia'), Object.keys(U[val('departamento')] || {}), 'Elige');
+    llenarSelect($('distrito'), [], 'Elige');
+  });
+  $('provincia').addEventListener('change', () => {
+    llenarSelect($('distrito'), ((U[val('departamento')] || {})[val('provincia')] || []).map((x) => x[0]), 'Elige');
+  });
+  $('distrito').addEventListener('change', () => {
+    const d = distritoActual();
+    if (d && d[2] && !marcador) mapa.flyTo([d[2], d[3]], 15, { duration: reduceMotion ? 0 : 0.6 });
+  });
+
+  function lima() {
+    if (!U.LIMA) return;
+    $('departamento').value = 'LIMA'; $('departamento').dispatchEvent(new Event('change'));
+    $('provincia').value = 'LIMA'; $('provincia').dispatchEvent(new Event('change'));
+  }
+
+  /* ------------------------------ Varios ------------------------------ */
+  $('sinNumero').addEventListener('change', (e) => {
+    $('numero').value = e.target.checked ? 'S/N' : '';
+    $('numero').readOnly = e.target.checked;
+    estado.tocados.add('numero'); validarCampo('numero'); actualizarAvance(); actualizarPlaca();
+    if (!e.target.checked) $('numero').focus();
+  });
+  $('descripcion').addEventListener('input', () => { $('contador').textContent = $('descripcion').value.length; });
+  $('telefonoAsesor').addEventListener('input', (e) => { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 9); });
+  $('dniCliente').addEventListener('input', (e) => { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 8); });
+
+  /* ================================ Mapa ================================ */
+
+  // Si la red bloquea el CDN de Leaflet, el formulario sigue funcionando sin mapa.
+  const hayMapa = typeof window.L !== 'undefined';
+  const mapa = hayMapa
+    ? L.map('mapa', { zoomControl: true }).setView([-12.0464, -77.0428], 12)
+    : { flyTo() {}, setView() {}, getZoom: () => 17, on() {}, removeLayer() {}, invalidateSize() {} };
+  if (hayMapa) {
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(mapa);
+  } else {
+    $('mapa').style.height = 'auto';
+    $('mapa').innerHTML = '<p class="hint" style="padding:14px">No se pudo cargar el mapa en esta red. Usa tu ubicación, el buscador o ingresa las coordenadas manualmente.</p>';
+  }
+  const iconoPin = hayMapa && L.divIcon({
+    className: '', iconSize: [30, 30], iconAnchor: [15, 30],
+    html: '<svg width="30" height="30" viewBox="0 0 24 24"><path fill="#F25C05" stroke="#fff" stroke-width="1.5" d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7z"/><circle cx="12" cy="9" r="2.6" fill="#fff"/></svg>'
+  });
+  let marcador = null;
+
+  function fijarPunto(lat, lng, origen, centrar) {
+    lat = Math.round(lat * 1e6) / 1e6; lng = Math.round(lng * 1e6) / 1e6;
+    if (hayMapa && !marcador) {
+      marcador = L.marker([lat, lng], { draggable: true, icon: iconoPin, keyboard: true, title: 'Ubicación del inmueble' }).addTo(mapa);
+      marcador.on('dragend', () => { const p = marcador.getLatLng(); fijarPunto(p.lat, p.lng, 'MAPA', false); });
+    } else if (marcador) {
+      marcador.setLatLng([lat, lng]);
+    }
+    if (centrar) mapa.setView([lat, lng], Math.max(mapa.getZoom(), 17));
+    $('latitud').value = lat.toFixed(6);
+    $('longitud').value = lng.toFixed(6);
+    estado.origen = origen;
+    const txt = { GPS: 'con tu ubicación', MAPA: 'en el mapa', BUSQUEDA: 'con la búsqueda', MANUAL: 'con coordenadas' }[origen];
+    $('estadoUbicacion').textContent = '✓ Ubicación marcada ' + txt + '.';
+    $('estadoUbicacion').classList.add('ok');
+    estado.tocados.add('ubicacion'); validarCampo('ubicacion'); actualizarAvance(); actualizarPlaca();
+  }
+
+  mapa.on('click', (e) => fijarPunto(e.latlng.lat, e.latlng.lng, 'MAPA', false));
+  ['latitud', 'longitud'].forEach((id) => $(id).addEventListener('change', () => {
+    const lat = parseFloat(val('latitud')), lng = parseFloat(val('longitud'));
+    if (isFinite(lat) && isFinite(lng)) fijarPunto(lat, lng, 'MANUAL', true);
+  }));
+
+  function textoBoton(btn, texto) { btn.querySelector('span') ? (btn.querySelector('span').textContent = texto) : (btn.textContent = texto); }
+
+  $('btnGps').addEventListener('click', () => {
+    const btn = $('btnGps');
+    if (!navigator.geolocation) return MSD.toast('Tu navegador no comparte la ubicación. Toca el punto en el mapa.');
+    btn.disabled = true; textoBoton(btn, 'Buscando señal…');
+    navigator.geolocation.getCurrentPosition((pos) => {
+      btn.disabled = false; textoBoton(btn, 'Usar mi ubicación');
+      fijarPunto(pos.coords.latitude, pos.coords.longitude, 'GPS', true);
+      if (pos.coords.accuracy > 100) MSD.toast('Precisión baja (±' + Math.round(pos.coords.accuracy) + ' m). Arrastra el pin si hace falta.', 5000);
+    }, (err) => {
+      btn.disabled = false; textoBoton(btn, 'Usar mi ubicación');
+      MSD.toast(err.code === 1 ? 'No diste permiso de ubicación. Toca el punto en el mapa.' : 'No se obtuvo la ubicación. Toca el punto en el mapa.', 5000);
+    }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 });
+  });
+
+  const ulRes = $('resultados');
+  function cerrarResultados() { ulRes.classList.add('cerrado'); }
+  async function buscar() {
+    const q = val('qMapa');
+    if (q.length < 4) return MSD.toast('Escribe al menos 4 caracteres para buscar.');
+    const btn = $('btnBuscar'); btn.disabled = true; btn.textContent = 'Buscando…';
+    try {
+      const res = await MSD.api('buscarDireccion', q, { distrito: val('distrito'), provincia: val('provincia') });
+      ulRes.innerHTML = '';
+      if (!res.length) { cerrarResultados(); return MSD.toast('Sin resultados. Toca el punto directamente en el mapa.'); }
+      res.forEach((r) => {
+        const li = document.createElement('li'); const b = document.createElement('button');
+        b.type = 'button'; b.textContent = r.etiqueta;
+        b.addEventListener('click', () => { fijarPunto(r.lat, r.lng, 'BUSQUEDA', true); cerrarResultados(); });
+        li.appendChild(b); ulRes.appendChild(li);
+      });
+      ulRes.classList.remove('cerrado');
+      ulRes.querySelector('button').focus();
+    } catch (e) {
+      MSD.toast(e.message, 5000);
+    } finally {
+      btn.disabled = false; btn.textContent = 'Buscar';
+    }
+  }
+  $('btnBuscar').addEventListener('click', buscar);
+  $('qMapa').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); buscar(); } });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') cerrarResultados(); });
+  document.addEventListener('click', (e) => { if (!ulRes.contains(e.target) && e.target !== $('btnBuscar')) cerrarResultados(); });
+
+  /* ============================== Evidencias ============================== */
+
+  const LIM = B.limites;
+  const fmtTam = (b) => b < 1024 * 1024 ? Math.round(b / 1024) + ' KB' : (b / 1024 / 1024).toFixed(1) + ' MB';
+
+  /** Fotos de celular (3–8 MB) se reducen a 1600 px / JPEG 85 %: suben más rápido con datos móviles. */
+  function comprimirImagen(file) {
+    return new Promise((resolve) => {
+      if (!/^image\/(jpeg|png|webp)$/.test(file.type) || file.size < 900 * 1024) return resolve(file);
+      const img = new Image(); const url = URL.createObjectURL(file);
+      img.onload = () => {
+        const k = Math.min(1, 1600 / Math.max(img.width, img.height));
+        const c = document.createElement('canvas');
+        c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(url);
+        c.toBlob((blob) => {
+          if (!blob || blob.size >= file.size) return resolve(file);
+          resolve(new File([blob], file.name.replace(/\.\w+$/, '') + '.jpg', { type: 'image/jpeg' }));
+        }, 'image/jpeg', 0.85);
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+      img.src = url;
+    });
+  }
+
+  function aBase64(file) {
+    return new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(String(r.result).split(',')[1]);
+      r.onerror = () => reject(new Error('No se pudo leer ' + file.name + '. Vuelve a adjuntarlo.'));
+      r.readAsDataURL(file);
+    });
+  }
+
+  async function agregarArchivos(lista) {
+    for (const original of Array.from(lista)) {
+      if (estado.archivos.length >= LIM.maxArchivos) { MSD.toast('Puedes adjuntar hasta ' + LIM.maxArchivos + ' archivos.'); break; }
+      if (LIM.mimes.indexOf(original.type) === -1) { MSD.toast('“' + original.name + '” no es PNG, JPG ni PDF.'); continue; }
+      const file = await comprimirImagen(original);
+      if (file.size > LIM.maxBytesArchivo) { MSD.toast('“' + original.name + '” pesa más de 5 MB.'); continue; }
+      estado.archivos.push({ file, nombre: file.name, mime: file.type, tamano: file.size,
+        preview: file.type.indexOf('image/') === 0 ? URL.createObjectURL(file) : null });
+    }
+    pintarArchivos();
+    estado.tocados.add('archivos'); validarCampo('archivos'); actualizarAvance();
+  }
+
+  function pintarArchivos() {
+    const ul = $('listaArchivos'); ul.innerHTML = '';
+    estado.archivos.forEach((a, i) => {
+      const li = document.createElement('li');
+      li.innerHTML = (a.preview ? '<img class="miniatura" alt="" src="' + a.preview + '">' : '<span class="miniatura">PDF</span>') +
+        '<div class="meta"><div class="nombre">' + MSD.esc(a.nombre) + '</div><div class="hint mono">' + fmtTam(a.tamano) + '</div></div>' +
+        '<button type="button" class="btn btn-ghost btn-icon" aria-label="Quitar ' + MSD.esc(a.nombre) + '">' +
+        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>';
+      li.querySelector('button').addEventListener('click', () => {
+        if (a.preview) URL.revokeObjectURL(a.preview);
+        estado.archivos.splice(i, 1); pintarArchivos(); validarCampo('archivos'); actualizarAvance();
+      });
+      ul.appendChild(li);
+    });
+    $('soltarTitulo').textContent = estado.archivos.length
+      ? estado.archivos.length + ' de ' + LIM.maxArchivos + ' · agregar otra captura'
+      : 'Adjunta una captura de pantalla';
+  }
+
+  $('archivos').addEventListener('change', (e) => { agregarArchivos(e.target.files); e.target.value = ''; });
+  const zona = $('soltar');
+  ['dragenter', 'dragover'].forEach((ev) => zona.addEventListener(ev, (e) => { e.preventDefault(); zona.classList.add('encima'); }));
+  ['dragleave', 'drop'].forEach((ev) => zona.addEventListener(ev, (e) => { e.preventDefault(); zona.classList.remove('encima'); }));
+  zona.addEventListener('drop', (e) => agregarArchivos(e.dataTransfer.files));
+  document.addEventListener('paste', (e) => {
+    const files = Array.from((e.clipboardData && e.clipboardData.items) || []).filter((it) => it.kind === 'file').map((it) => it.getAsFile());
+    if (files.length) { agregarArchivos(files); MSD.toast('Captura pegada.'); }
+  });
+
+  /* ================================ Envío ================================ */
+
+  function recolectar() {
+    return {
+      website: form.website.value,
+      canal: val('canal'), codigoAsesor: val('codigoAsesor'), nombreAsesor: val('nombreAsesor'),
+      correoAsesor: val('correoAsesor'), telefonoAsesor: val('telefonoAsesor'),
+      tipoCliente: val('tipoCliente'), nombreCliente: val('nombreCliente'), dniCliente: val('dniCliente'),
+      departamento: val('departamento'), provincia: val('provincia'), distrito: val('distrito'),
+      tipoVia: val('tipoVia'), nombreVia: val('nombreVia'), numero: val('numero'),
+      manzana: val('manzana'), lote: val('lote'), tipoEdificacion: val('tipoEdificacion'),
+      interior: val('interior'), referencia: val('referencia'),
+      latitud: val('latitud'), longitud: val('longitud'), origenCoordenadas: estado.origen,
+      tipoCaso: radio('tipoCaso'), descripcion: val('descripcion'),
+      confirmacion: $('confirmacion').checked
+    };
+  }
+
+  /** Valida todo, muestra cada error junto a su campo y lleva al primero. */
+  function validarTodo() {
+    const errores = [];
+    BLOQUES.forEach((b) => b.campos.forEach((c) => {
+      estado.tocados.add(c);
+      const msg = validarCampo(c);
+      if (msg) errores.push(c);
+    }));
+    const sinConfirmar = !$('confirmacion').checked;
+    $('err-confirmacion').textContent = sinConfirmar ? 'Marca esta casilla para confirmar que revisaste los datos.' : '';
+    $('err-confirmacion').classList.toggle('hidden', !sinConfirmar);
+    actualizarAvance();
+    if (errores.length) {
+      const c = errores[0];
+      const foco = FOCO[c] !== undefined ? FOCO[c] : c;
+      const destino = (foco && $(foco)) || $(ANCLA[c] || c);
+      (destino.closest('.field') || destino.closest('.bloque') || destino).scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'center' });
+      if (c === 'tipoCaso') { const r = form.querySelector('input[name="tipoCaso"]'); if (r) r.focus({ preventScroll: true }); }
+      else if (destino.focus) destino.focus({ preventScroll: true });
+      MSD.toast(errores.length === 1 ? 'Falta 1 dato por completar.' : 'Faltan ' + errores.length + ' datos por completar.');
+      return false;
+    }
+    if (sinConfirmar) {
+      $('confirmacion').focus();
+      $('confirmacion').scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'center' });
+      return false;
+    }
+    return true;
+  }
+  $('confirmacion').addEventListener('change', () => { if ($('confirmacion').checked) $('err-confirmacion').classList.add('hidden'); });
+
+  const modal = {
+    abrir() {
+      $('mTitulo').textContent = 'Enviando caso';
+      $('mError').classList.add('hidden'); $('mAcciones').classList.add('hidden');
+      $('velo').classList.add('abierto'); $('velo').setAttribute('aria-hidden', 'false');
+    },
+    cerrar() { $('velo').classList.remove('abierto'); $('velo').setAttribute('aria-hidden', 'true'); },
+    pasos(lista, actual) {
+      $('mPasos').innerHTML = lista.map((t, i) => {
+        const cls = i < actual ? 'hecho' : i === actual ? 'actual' : '';
+        const icono = i < actual ? '<svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 6.2 5 8.5l4.5-5"/></svg>' : '';
+        return '<li class="' + cls + '"><span class="marca">' + icono + '</span>' + MSD.esc(t) + '</li>';
+      }).join('');
+    },
+    error(msg, reintentable) {
+      $('mTitulo').textContent = 'No se completó el envío';
+      $('mError').textContent = msg; $('mError').classList.remove('hidden');
+      $('mAcciones').classList.remove('hidden');
+      $('mReintentar').classList.toggle('hidden', !reintentable);
+      (reintentable ? $('mReintentar') : $('mCerrar')).focus();
+    }
+  };
+
+  let enviando = false;
+  async function enviar() {
+    if (enviando) return;
+    if (!validarTodo()) return;
+    const p = recolectar();
+    enviando = true;
+    [$('btnEnviar'), $('btnEnviarMovil')].forEach((b) => { b.disabled = true; });
+    modal.abrir();
+    const n = estado.archivos.length;
+    const pasos = ['Registrando el caso']
+      .concat(estado.archivos.map((a, i) => n === 1 ? 'Subiendo la captura' : 'Subiendo captura ' + (i + 1) + ' de ' + n))
+      .concat(['Avisando a la Mesa']);
+
+    try {
+      if (!estado.envio) {            // si es reintento y el caso ya existe, no se duplica
+        modal.pasos(pasos, 0);
+        const r = await MSD.api('registrarCaso', p);
+        estado.envio = { id: r.id, uploadToken: r.uploadToken, subidos: 0 };
+      }
+      for (let i = estado.envio.subidos; i < n; i++) {   // un archivo por llamada (límite de google.script.run)
+        modal.pasos(pasos, i + 1);
+        const a = estado.archivos[i];
+        if (!a.base64) a.base64 = await aBase64(a.file);
+        await MSD.api('subirEvidencia', estado.envio.id, estado.envio.uploadToken, { nombre: a.nombre, mime: a.mime, base64: a.base64 });
+        a.base64 = null;
+        estado.envio.subidos = i + 1;
+      }
+      modal.pasos(pasos, pasos.length - 1);
+      const fin = await MSD.api('finalizarRegistro', estado.envio.id, estado.envio.uploadToken);
+      modal.cerrar();
+      mostrarExito(fin, p.correoAsesor);
+    } catch (e) {
+      const prefijo = estado.envio ? 'Tu caso ' + estado.envio.id + ' ya quedó creado. ' : '';
+      modal.error(prefijo + e.message, e.codigo !== 'TOKEN' && e.codigo !== 'RATE_LIMIT' && e.codigo !== 'VALIDACION');
+    } finally {
+      enviando = false;
+      [$('btnEnviar'), $('btnEnviarMovil')].forEach((b) => { b.disabled = false; });
+    }
+  }
+
+  function mostrarExito(fin, correo) {
+    form.classList.add('hidden');
+    $('exitoId').textContent = fin.id;
+    $('exitoMsg').textContent = (fin.correoEnviado
+      ? 'La Mesa ya recibió tu caso. Te escribiremos a ' + correo + ' cuando esté resuelto.'
+      : 'Tu caso quedó registrado y la Mesa lo verá en su base. El aviso por correo no salió esta vez.') +
+      ' Guarda este número para hacer seguimiento.';
+    const ex = $('exito');
+    ex.classList.remove('hidden', 'visible');
+    window.scrollTo({ top: 0, behavior: 'auto' });
+    requestAnimationFrame(() => requestAnimationFrame(() => ex.classList.add('visible')));
+    $('btnOtro').focus({ preventScroll: true });
+  }
+
+  $('btnCopiar').addEventListener('click', async () => {
+    const id = $('exitoId').textContent;
+    try { await navigator.clipboard.writeText(id); }
+    catch (e) {   // el iframe de Apps Script puede bloquear el portapapeles: plan B
+      const t = document.createElement('textarea'); t.value = id; document.body.appendChild(t); t.select();
+      try { document.execCommand('copy'); } catch (e2) { /* sin portapapeles */ }
+      t.remove();
+    }
+    MSD.toast('Número ' + id + ' copiado.');
+  });
+
+  function reiniciar() {
+    form.reset();
+    estado.archivos.forEach((a) => a.preview && URL.revokeObjectURL(a.preview));
+    estado.archivos = []; estado.envio = null; estado.origen = 'MAPA'; estado.tocados.clear();
+    pintarArchivos();
+    form.querySelectorAll('.err').forEach((p) => { p.classList.add('hidden'); p.textContent = ''; });
+    form.querySelectorAll('[aria-invalid]').forEach((el) => el.setAttribute('aria-invalid', 'false'));
+    if (marcador) { mapa.removeLayer(marcador); marcador = null; }
+    $('estadoUbicacion').textContent = 'Aún no marcas la ubicación.'; $('estadoUbicacion').classList.remove('ok');
+    $('numero').readOnly = false; $('contador').textContent = '0';
+    lima();
+    $('exito').classList.add('hidden'); form.classList.remove('hidden');
+    actualizarAvance(); actualizarPlaca();
+    setTimeout(() => mapa.invalidateSize(), 60);
+    window.scrollTo({ top: 0 });
+    $('canal').focus({ preventScroll: true });
+  }
+
+  form.addEventListener('submit', (e) => { e.preventDefault(); enviar(); });
+  $('mReintentar').addEventListener('click', enviar);
+  $('mCerrar').addEventListener('click', () => modal.cerrar());
+  $('btnOtro').addEventListener('click', reiniciar);
+  $('velo').addEventListener('keydown', (e) => { if (e.key === 'Escape' && !enviando) modal.cerrar(); });
+
+  lima();
+  actualizarAvance();
+  actualizarPlaca();
+})();
+</script>

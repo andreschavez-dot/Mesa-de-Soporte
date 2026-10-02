@@ -1,0 +1,49 @@
+<script>
+  /**
+   * Common.html — Utilidades de cliente.
+   * `api()` convierte google.script.run (callbacks) en Promesas y desempaqueta
+   * el contrato { ok, data, error, codigo } que devuelve endpoint_() en servidor.
+   */
+  window.MSD = window.MSD || {};
+
+  MSD.api = function (fn, ...args) {
+    return new Promise((resolve, reject) => {
+      google.script.run
+        .withSuccessHandler((r) => {
+          if (r && r.ok) return resolve(r.data);
+          const e = new Error((r && r.error) || 'Respuesta inválida del servidor.');
+          e.codigo = r && r.codigo;
+          reject(e);
+        })
+        .withFailureHandler((err) => {
+          // Red caída o timeout de Apps Script (no es un AppError de negocio)
+          const e = new Error('No hay conexión con el servidor. Revisa tu internet y vuelve a intentarlo.');
+          e.codigo = 'RED';
+          e.causa = err;
+          reject(e);
+        })[fn](...args);
+    });
+  };
+
+  /** Escapa texto antes de insertarlo como HTML (previene XSS). */
+  MSD.esc = function (v) {
+    return String(v === null || v === undefined ? '' : v)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  };
+
+  /** Toast con transición CSS: si llega otro mensaje, se reemplaza sin reiniciar la animación. */
+  MSD.toast = function (msg, ms) {
+    let t = document.getElementById('toast');
+    if (!t) {
+      t = document.createElement('div'); t.id = 'toast'; t.className = 'toast';
+      t.setAttribute('role', 'status'); t.setAttribute('aria-live', 'polite');
+      document.body.appendChild(t);
+    }
+    t.textContent = msg;
+    t.classList.remove('salida');
+    requestAnimationFrame(() => t.classList.add('show'));
+    clearTimeout(MSD._toastT);
+    MSD._toastT = setTimeout(() => { t.classList.add('salida'); t.classList.remove('show'); }, ms || 3800);
+  };
+</script>

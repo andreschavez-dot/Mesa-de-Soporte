@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="utf-8"><meta http-equiv="Content-Language" content="es"></head>
+<body style="margin:0;padding:24px;background:#f3f5fa;font-family:Arial,Helvetica,sans-serif;color:#14213d;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:620px;margin:0 auto;background:#ffffff;border-radius:10px;overflow:hidden;border:1px solid #dfe4ef;">
+    <tr>
+      <td style="background:#0E1B3D;color:#ffffff;padding:18px 24px;">
+        <div style="font-size:12px;letter-spacing:.06em;text-transform:uppercase;opacity:.8;">Mesa de Soporte de Direcciones</div>
+        <div style="font-size:19px;font-weight:bold;margin-top:4px;"><?= d.titulo ?></div>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:20px 24px;font-size:14px;line-height:1.5;">
+        <? if (d.intro) { ?><p style="margin:0 0 12px;"><?= d.intro ?></p><? } ?>
+        <? if (d.solucion) { ?>
+          <div style="margin:0 0 16px;padding:14px 16px;background:#E3F4EC;border-left:4px solid #0B7A55;border-radius:4px;">
+            <div style="font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#0B7A55;font-weight:bold;margin-bottom:6px;">Solución</div>
+            <div style="white-space:pre-wrap;"><?= d.solucion ?></div>
+            <? if (d.atendidoPor) { ?><div style="margin-top:8px;font-size:13px;color:#46536F;">Atendido por: <?= d.atendidoPor ?></div><? } ?>
+          </div>
+        <? } ?>
+        <? if (d.comentario) { ?>
+          <div style="margin:0 0 16px;padding:12px 14px;background:#fff6ec;border-left:4px solid #F25C05;border-radius:4px;white-space:pre-wrap;"><?= d.comentario ?></div>
+        <? } ?>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;">
+          <tr><td style="padding:6px 0;color:#5b6785;width:150px;">N° de caso</td><td style="padding:6px 0;font-weight:bold;"><?= d.caso.id ?></td></tr>
+          <tr><td style="padding:6px 0;color:#5b6785;">Tipo de caso</td><td style="padding:6px 0;"><?= d.caso.tipoCaso ?></td></tr>
+          <tr><td style="padding:6px 0;color:#5b6785;">Prioridad</td><td style="padding:6px 0;"><?= d.caso.prioridad ?></td></tr>
+          <tr><td style="padding:6px 0;color:#5b6785;">Canal</td><td style="padding:6px 0;"><?= d.caso.canal ?></td></tr>
+          <? if (!d.paraAsesor) { ?>
+          <tr><td style="padding:6px 0;color:#5b6785;">Asesor</td><td style="padding:6px 0;"><?= d.caso.nombreAsesor ?> (<?= d.caso.codigoAsesor ?>)</td></tr>
+          <tr><td style="padding:6px 0;color:#5b6785;">Contacto</td><td style="padding:6px 0;"><?= d.caso.correoAsesor ?> / <?= d.caso.telefonoAsesor ?></td></tr>
+          <? } ?>
+          <? if (!d.paraAsesor) { ?>
+          <tr><td style="padding:6px 0;color:#5b6785;">Cliente</td><td style="padding:6px 0;"><?= d.caso.nombreCliente || d.caso.tipoCliente ?> · DNI <?= d.caso.dniCliente ?></td></tr>
+          <? } ?>
+          <tr><td style="padding:6px 0;color:#5b6785;">Ubicación</td><td style="padding:6px 0;"><?= d.caso.distrito ?>, <?= d.caso.provincia ?>, <?= d.caso.departamento ?> (<?= d.caso.ubigeo ?>)</td></tr>
+          <tr><td style="padding:6px 0;color:#5b6785;">Dirección</td><td style="padding:6px 0;"><?= d.caso.direccionCompleta ?></td></tr>
+          <tr><td style="padding:6px 0;color:#5b6785;">Edificación</td><td style="padding:6px 0;"><?= d.caso.tipoEdificacion ?></td></tr>
+          <tr><td style="padding:6px 0;color:#5b6785;">Coordenadas</td><td style="padding:6px 0;"><?= d.caso.latitud ?>, <?= d.caso.longitud ?> (<?= d.caso.origenCoordenadas ?>)</td></tr>
+          <tr><td style="padding:6px 0;color:#5b6785;">Registrado</td><td style="padding:6px 0;"><?= d.fecha ?></td></tr>
+          <? if (d.caso.codigoError) { ?>
+          <tr><td style="padding:6px 0;color:#5b6785;">Mensaje de error</td><td style="padding:6px 0;"><?= d.caso.codigoError ?></td></tr>
+          <? } ?>
+          <tr><td style="padding:6px 0;color:#5b6785;vertical-align:top;">Descripción</td><td style="padding:6px 0;white-space:pre-wrap;"><?= d.caso.descripcion ?></td></tr>
+        </table>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:0 24px 22px;font-size:14px;">
+        <a href="<?= d.mapa ?>" style="display:inline-block;margin:4px 12px 4px 0;color:#0E1B3D;">Ver en Google Maps</a>
+        <? if (!d.paraAsesor) { ?>
+          <? if (d.caso.carpetaEvidencias) { ?><a href="<?= d.caso.carpetaEvidencias ?>" style="display:inline-block;margin:4px 12px 4px 0;color:#2348E8;">Ver evidencias (<?= d.caso.numEvidencias ?>)</a><? } ?>
+          <a href="<?= d.urlBase ?>" style="display:inline-block;margin:4px 12px 4px 0;color:#2348E8;">Abrir el caso en la base</a>
+        <? } ?>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:12px 24px;background:#f7f8fc;color:#7a849c;font-size:12px;">
+        Correo automático de la Mesa de Soporte de Direcciones. Contiene datos personales: no lo reenvíes fuera del equipo.
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
