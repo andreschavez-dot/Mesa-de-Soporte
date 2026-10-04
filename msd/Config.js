@@ -50,7 +50,6 @@ const COLORES_ESTADO = Object.freeze({
 const COLUMNAS_CASOS = Object.freeze([
   ['id', 'ID Caso'],
   ['fechaRegistro', 'Fecha registro'],
-  ['prioridad', 'Prioridad'],
   ['canal', 'Canal'],
   ['tipoCaso', 'Tipo de caso'],
   ['nombreAsesor', 'Nombre asesor'],
@@ -60,27 +59,25 @@ const COLUMNAS_CASOS = Object.freeze([
   ['tipoCliente', 'Tipo de cliente'],
   ['nombreCliente', 'Nombre cliente'],
   ['dniCliente', 'DNI cliente'],
-  // --- Sección dirección: orden definido por la Mesa ---
-  ['tipoVia', 'Tipo de vía'],
+  // --- Sección dirección: orden de la tabla de referencia ---
+  ['direccionCompleta', 'Dirección completa'],
   ['nombreVia', 'Nombre de vía'],
+  ['interior', 'Interior'],
   ['numero', 'Número de vía'],
   ['departamento', 'Departamento'],
   ['provincia', 'Provincia'],
   ['distrito', 'Distrito'],
   ['longitud', 'Longitud'],
   ['latitud', 'Latitud'],
+  ['tipoVia', 'Tipo de vía'],
   ['tipoEdificacion', 'Tipo de edificación'],
   ['manzana', 'Manzana'],
+  // --- Sin equivalente en la tabla (orden relativo anterior) ---
   ['lote', 'Lote'],
-  // --- Resto de la sección dirección (orden relativo original) ---
   ['ubigeo', 'Ubigeo'],
-  ['interior', 'Interior'],
   ['referencia', 'Referencia'],
-  ['direccionCompleta', 'Dirección completa'],
   ['origenCoordenadas', 'Origen coordenadas'],
   // --- Detalle del caso ---
-  ['clienteEsperando', 'Cliente esperando'],
-  ['codigoError', 'Mensaje/código error'],
   ['descripcion', 'Descripción'],
   ['carpetaEvidencias', 'Carpeta evidencias'],
   ['numEvidencias', 'N° evidencias'],
@@ -97,6 +94,16 @@ const COLUMNAS_CASOS = Object.freeze([
 const RENOMBRES_COLUMNAS = Object.freeze({
   'Número': 'Número de vía'
 });
+
+/**
+ * Encabezados que ya no forman parte del esquema. La migración
+ * (Setup.js) borra esas columnas de la hoja Casos.
+ */
+const COLUMNAS_RETIRADAS = Object.freeze([
+  'Prioridad',
+  'Cliente esperando',
+  'Mensaje/código error'
+]);
 
 const COLUMNAS_HISTORIAL = Object.freeze([
   ['fecha', 'Fecha'],
@@ -131,7 +138,7 @@ const CATALOGOS_RETIRADOS = Object.freeze({
 const CATALOGOS_DEFAULT = Object.freeze({
   canal: ['Tiendas', 'APP Terreno', 'Digital', 'Outbound'],
   tipoCaso: ['Sin cobertura', 'Sin factibilidad'],
-  tipoCliente: ['Persona natural', 'Empresa / Negocio'],
+  tipoCliente: ['B2B (Empresa)', 'B2C (Hogar)'],
   tipoVia: ['Avenida', 'Calle', 'Jirón', 'Pasaje', 'Prolongación', 'Carretera', 'Malecón', 'Alameda', 'Óvalo', 'Plaza', 'Camino', 'Otro'],
   tipoEdificacion: ['Casa', 'Edificio', 'Condominio', 'Multifamiliar', 'Quinta', 'Otro']
 });

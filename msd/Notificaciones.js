@@ -11,7 +11,6 @@ function notificarNuevoCaso_(caso) {
   const cfg = getConfig_();
   const ok = enviarCorreo_(cfg.CORREO_MESA, `[${caso.tipoCaso}] Nuevo caso ${caso.id} – ${caso.distrito}`, {
     titulo: `Nuevo caso ${caso.id} — ${caso.tipoCaso}`,
-    intro: caso.prioridad === 'Alta' ? 'Prioridad ALTA: el cliente está esperando o hay una falla de sistema.' : '',
     caso: caso
   }, caso.id, { replyTo: caso.correoAsesor });
 

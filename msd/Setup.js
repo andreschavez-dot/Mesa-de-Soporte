@@ -101,6 +101,7 @@ function respaldarEsquemaAnterior_(ss) {
  *  2. Recorre el esquema de izquierda a derecha: si la columna existe en otra
  *     posición la mueve (moveColumns conserva datos, formatos y validaciones);
  *     si no existe la inserta en su lugar.
+ *  3. Borra las columnas de COLUMNAS_RETIRADAS (ya no las llena el formulario).
  * Columnas desconocidas (agregadas a mano) quedan al final, intactas.
  */
 function sincronizarColumnasCasos_(ss) {
@@ -129,6 +130,12 @@ function sincronizarColumnasCasos_(ss) {
       sh.getRange(1, destino).setValue(header)
         .setFontWeight('bold').setBackground('#0E1B3D').setFontColor('#ffffff');
     }
+  });
+
+  COLUMNAS_RETIRADAS.forEach(header => {
+    actuales = leer();
+    const pos = actuales.indexOf(header) + 1;
+    if (pos > 0) sh.deleteColumn(pos);
   });
   delete _memo['cols_' + HOJAS.CASOS];
   return sh;

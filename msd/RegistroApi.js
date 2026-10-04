@@ -113,9 +113,6 @@ function validarRegistro_(p) {
   // 4. Detalle
   c.tipoCaso = enLista_(requerido_(texto_(p.tipoCaso, 60), 'Tipo de caso'), cat.tipoCaso, 'Tipo de caso');
   c.descripcion = requerido_(texto_(p.descripcion, APP.MAX_DESCRIPCION), 'Descripción del caso');
-  c.codigoError = texto_(p.codigoError, 200);
-  c.clienteEsperando = enLista_(texto_(p.clienteEsperando) || 'No', ['Sí', 'No'], '¿El cliente está esperando?');
-  c.prioridad = c.clienteEsperando === 'Sí' || c.tipoCaso === 'Error o caída del sistema' ? 'Alta' : 'Normal';
 
   // 6. Confirmación
   if (p.confirmacion !== true) throw new AppError('Debes confirmar que la información es correcta.');

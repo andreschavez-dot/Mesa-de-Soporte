@@ -25,7 +25,6 @@
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;">
           <tr><td style="padding:6px 0;color:#5b6785;width:150px;">N° de caso</td><td style="padding:6px 0;font-weight:bold;"><?= d.caso.id ?></td></tr>
           <tr><td style="padding:6px 0;color:#5b6785;">Tipo de caso</td><td style="padding:6px 0;"><?= d.caso.tipoCaso ?></td></tr>
-          <tr><td style="padding:6px 0;color:#5b6785;">Prioridad</td><td style="padding:6px 0;"><?= d.caso.prioridad ?></td></tr>
           <tr><td style="padding:6px 0;color:#5b6785;">Canal</td><td style="padding:6px 0;"><?= d.caso.canal ?></td></tr>
           <? if (!d.paraAsesor) { ?>
           <tr><td style="padding:6px 0;color:#5b6785;">Asesor</td><td style="padding:6px 0;"><?= d.caso.nombreAsesor ?> (<?= d.caso.codigoAsesor ?>)</td></tr>
@@ -39,9 +38,6 @@
           <tr><td style="padding:6px 0;color:#5b6785;">Edificación</td><td style="padding:6px 0;"><?= d.caso.tipoEdificacion ?></td></tr>
           <tr><td style="padding:6px 0;color:#5b6785;">Coordenadas</td><td style="padding:6px 0;"><?= d.caso.latitud ?>, <?= d.caso.longitud ?> (<?= d.caso.origenCoordenadas ?>)</td></tr>
           <tr><td style="padding:6px 0;color:#5b6785;">Registrado</td><td style="padding:6px 0;"><?= d.fecha ?></td></tr>
-          <? if (d.caso.codigoError) { ?>
-          <tr><td style="padding:6px 0;color:#5b6785;">Mensaje de error</td><td style="padding:6px 0;"><?= d.caso.codigoError ?></td></tr>
-          <? } ?>
           <tr><td style="padding:6px 0;color:#5b6785;vertical-align:top;">Descripción</td><td style="padding:6px 0;white-space:pre-wrap;"><?= d.caso.descripcion ?></td></tr>
         </table>
       </td>
