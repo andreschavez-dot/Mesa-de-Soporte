@@ -131,7 +131,7 @@ const CATALOGOS_RETIRADOS = Object.freeze({
 const CATALOGOS_DEFAULT = Object.freeze({
   canal: ['Tiendas', 'APP Terreno', 'Digital', 'Outbound'],
   tipoCaso: ['Sin cobertura', 'Sin factibilidad'],
-  tipoCliente: ['Persona natural', 'Empresa / Negocio'],
+  tipoCliente: ['B2B (Empresa)', 'B2C (Hogar)'],
   tipoVia: ['Avenida', 'Calle', 'Jirón', 'Pasaje', 'Prolongación', 'Carretera', 'Malecón', 'Alameda', 'Óvalo', 'Plaza', 'Camino', 'Otro'],
   tipoEdificacion: ['Casa', 'Edificio', 'Condominio', 'Multifamiliar', 'Quinta', 'Otro']
 });
