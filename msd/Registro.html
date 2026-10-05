@@ -3,383 +3,863 @@
 <head>
   <base target="_top">
   <meta charset="utf-8">
-  <meta name="theme-color" content="#0E1B3D">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-  <?!= include_('Styles') ?>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Nunito&#43;Sans:wght@400;600;700;800&amp;display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material&#43;Symbols&#43;Outlined:opsz,wght,FILL,GRAD@24,500,1,0" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
   <style>
-    /* ============================== Cabecera ============================== */
-    .cabecera { background: var(--tinta); color: #fff; }
-    .cabecera .in { max-width: 1180px; margin: 0 auto; padding: 28px 20px 30px; display: flex; gap: 24px; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; }
-    .eyebrow { font-family: var(--f-mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: rgba(255,255,255,.62); }
-    .cabecera h1 { font-size: clamp(26px, 4vw, 36px); font-weight: 700; line-height: 1.05; margin-top: 8px; }
-    .cabecera p { margin-top: 10px; max-width: 560px; color: rgba(255,255,255,.78); font-size: 15px; }
-    .teams {
-      display: flex; gap: 10px; align-items: center; padding: 10px 14px; border-radius: var(--r-sm);
-      background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.14); font-size: 13.5px; color: rgba(255,255,255,.88); max-width: 300px;
+    :root {
+      --azul: #0B2A8C;
+      --azul-2: #1E4FD8;
+      --azul-claro: #EEF3FF;
+      --celeste: #7FC4FF;
+      --texto: #1B2240;
+      --gris: #6B7390;
+      --borde: #D5DBEA;
+      --fondo: #F4F6FB;
+      --error: #D93025;
+      --ok: #1E8E3E;
+      --radio: 14px;
     }
-    .teams b { color: #fff; }
-    .teams svg { flex: none; }
-
-    /* ============================== Obligatorios ============================== */
-    .req { color: var(--rojo); font-weight: 700; margin-left: 3px; }
-    .leyenda { font-size: 13px; color: var(--tinta-2); margin: 0 0 -4px 2px; }
-
-    /* ============================== Lienzo ============================== */
-    .lienzo { max-width: 1180px; margin: 0 auto; padding: 24px 20px 48px; display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 24px; align-items: start; }
-    .columna { display: grid; gap: 16px; min-width: 0; }
-
-    .bloque { background: var(--papel); border: 1px solid var(--cota); border-radius: var(--r-lg); box-shadow: var(--sombra); padding: 22px 22px 24px; scroll-margin-top: 16px; }
-    .bloque-cab { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
-    .paso { font-family: var(--f-mono); font-size: 12px; color: var(--tinta-3); padding: 3px 7px; border: 1px solid var(--cota); border-radius: 6px; }
-    .bloque h2 { font-size: 19px; font-weight: 700; }
-    .bloque-ok { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; color: var(--verde);
-      opacity: 0; transform: translateY(2px); transition: opacity 180ms ease, transform 220ms var(--ease-out); }
-    .bloque.completo .bloque-ok { opacity: 1; transform: none; }
-
-    .rejilla { display: grid; gap: 14px 14px; grid-template-columns: repeat(6, minmax(0, 1fr)); }
-    .c2 { grid-column: span 2; } .c3 { grid-column: span 3; } .c4 { grid-column: span 4; } .c6 { grid-column: span 6; }
-    .fila-inline { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
-
-    /* Número + S/N */
-    .con-accion { position: relative; }
-    .con-accion .input { padding-right: 70px; }
-    .sn { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); }
-    .sn input { position: absolute; opacity: 0; pointer-events: none; }
-    .sn span { display: inline-block; padding: 5px 9px; border-radius: 6px; font-family: var(--f-mono); font-size: 12px; font-weight: 500;
-      border: 1px solid var(--cota); background: var(--papel); color: var(--tinta-2); cursor: pointer;
-      transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease; }
-    .sn input:checked + span { background: var(--tinta); border-color: var(--tinta); color: #fff; }
-    .sn input:focus-visible + span { box-shadow: var(--anillo); }
-
-    /* ============================== Mapa ============================== */
-    .herramientas { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; margin-bottom: 10px; }
-    #mapa { height: 320px; border-radius: var(--r); border: 1px solid var(--cota); z-index: 0; background: #E6EAF0; }
-    .resultados { list-style: none; margin: 0 0 10px; padding: 4px; border: 1px solid var(--cota); border-radius: var(--r-sm); background: var(--papel); box-shadow: var(--sombra-alta);
-      transform-origin: top center; transition: opacity 160ms var(--ease-out), transform 180ms var(--ease-out); }
-    .resultados.cerrado { opacity: 0; transform: translateY(-4px) scale(.98); pointer-events: none; position: absolute; visibility: hidden; }
-    .resultados button { width: 100%; text-align: left; padding: 10px 12px; border: 0; border-radius: 6px; background: transparent; cursor: pointer; font-size: 14px; }
-    @media (hover: hover) and (pointer: fine) { .resultados button:hover { background: var(--ruta-50); } }
-    .resultados button:focus-visible { outline: none; background: var(--ruta-50); }
-    .ubic-estado { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 13.5px; color: var(--tinta-3); }
-    .ubic-estado.ok { color: var(--verde); }
-    .coords { margin-top: 12px; }
-    .coords summary { cursor: pointer; font-size: 13px; color: var(--tinta-2); width: fit-content; }
-    .coords .rejilla { margin-top: 10px; }
-
-    /* ============================== Evidencia ============================== */
-    .soltar {
-      display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 22px 16px; text-align: center; cursor: pointer;
-      border: 1.5px dashed var(--cota-2); border-radius: var(--r); background: var(--campo);
-      transition: border-color 150ms ease, background-color 150ms ease;
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: 'Nunito Sans', Arial, sans-serif;
+      color: var(--texto);
+      background: var(--fondo);
+      font-size: 15px;
     }
-    .soltar strong { font-size: 15px; }
-    .soltar.encima { border-color: var(--ruta); background: var(--ruta-50); }
-    @media (hover: hover) and (pointer: fine) { .soltar:hover { border-color: var(--tinta-3); } }
-    .soltar:focus-within { box-shadow: var(--anillo); border-color: var(--ruta); }
-    .archivos { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 8px; }
-    .archivos li {
-      display: flex; align-items: center; gap: 12px; padding: 8px 8px 8px 8px; border: 1px solid var(--cota); border-radius: var(--r-sm); background: var(--papel);
-      transition: opacity 200ms var(--ease-out), transform 220ms var(--ease-out);
-      @starting-style { opacity: 0; transform: translateY(4px); }
+    .material-symbols-outlined { font-size: 26px; color: var(--azul); line-height: 1; }
+
+     
+    header {
+      background: linear-gradient(120deg, var(--azul) 0%, var(--azul-2) 100%);
+      color: #fff;
+      padding: 22px 28px;
+      border-radius: 0 0 var(--radio) var(--radio);
+      display: flex;
+      align-items: center;
+      gap: 28px;
+      flex-wrap: wrap;
     }
-    .miniatura { width: 44px; height: 44px; flex: none; border-radius: 6px; object-fit: cover; background: var(--ruta-50);
-      display: grid; place-items: center; font-family: var(--f-mono); font-size: 11px; color: var(--ruta); font-weight: 500; }
-    .archivos .meta { flex: 1; min-width: 0; }
-    .archivos .nombre { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; font-size: 14px; }
+    header h1 { margin: 0; font-size: 30px; line-height: 1.1; font-weight: 800; }
+    header h1 .sub { display: block; color: var(--celeste); }
+    header h1 .mesa { display: block; font-size: 20px; margin-top: 6px; }
+    header .separador { width: 1px; align-self: stretch; background: rgba(255,255,255,.4); }
+    header p { margin: 0; max-width: 320px; line-height: 1.4; opacity: .95; }
+    header .logo { margin-left: auto; }
 
-    /* ============================== Riel (revisión) ============================== */
-    .riel { position: sticky; top: 16px; display: grid; gap: 14px; }
-    .riel-card { background: var(--papel); border: 1px solid var(--cota); border-radius: var(--r-lg); box-shadow: var(--sombra); padding: 18px; }
-    .riel h2 { font-size: 15px; font-weight: 700; margin-bottom: 12px; }
+     
+    main { max-width: 1100px; margin: 20px auto 40px; padding: 0 16px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; align-items: start; }
+    .col { display: flex; flex-direction: column; gap: 18px; }
+    @media (max-width: 900px) {
+      .grid { grid-template-columns: 1fr; }
+      header { padding: 18px; }
+      header h1 { font-size: 24px; }
+      header .separador { display: none; }
+    }
 
-    /* Firma: placa de dirección (estilo placa de calle esmaltada) */
-    .placa { background: var(--tinta); color: #fff; border-radius: 14px; padding: 7px; box-shadow: 0 10px 24px rgba(14,27,61,.22); }
-    .placa-in { border: 1.5px solid rgba(255,255,255,.85); border-radius: 9px; padding: 14px 16px 12px; min-height: 172px; display: flex; flex-direction: column; }
-    .placa-tipo { font-family: var(--f-mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: rgba(255,255,255,.6); }
-    .placa-via { font-size: 25px; font-weight: 800; line-height: 1.02; text-transform: uppercase; margin-top: 6px; overflow-wrap: anywhere; }
-    .placa-via.vacia { color: rgba(255,255,255,.35); font-weight: 600; font-size: 19px; text-transform: none; }
-    .placa-extra { margin-top: 6px; font-size: 14px; color: rgba(255,255,255,.85); min-height: 0; }
-    .placa-lugar { margin-top: auto; padding-top: 12px; font-size: 13.5px; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; color: rgba(255,255,255,.92); }
-    .placa-pie { display: flex; justify-content: space-between; gap: 8px; margin-top: 8px; padding-top: 8px; border-top: 1px dashed rgba(255,255,255,.28);
-      font-family: var(--f-mono); font-size: 11.5px; color: rgba(255,255,255,.66); }
-    .placa-pie .pin { color: var(--senal); }
+     
+    .card { background: #fff; border-radius: var(--radio); box-shadow: 0 1px 3px rgba(16,30,80,.08); overflow: hidden; }
+    .card-head {
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 18px; background: var(--azul-claro);
+    }
+    .card-head .num {
+      width: 34px; height: 34px; border-radius: 50%;
+      background: var(--azul-2); color: #fff; font-weight: 800;
+      display: grid; place-items: center; font-size: 17px; flex-shrink: 0;
+    }
+    .card-head h2 { margin: 0; font-size: 19px; color: var(--azul); font-weight: 800; }
+    .card-body { padding: 16px 20px 20px; }
 
-    .avance { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
-    .avance button { width: 100%; display: flex; align-items: center; gap: 10px; padding: 8px 8px; border: 0; background: transparent; border-radius: 8px; cursor: pointer; text-align: left; font-size: 14px; }
-    @media (hover: hover) and (pointer: fine) { .avance button:hover { background: #F3F5F8; } }
-    .avance button:focus-visible { outline: none; box-shadow: var(--anillo); }
-    .avance .punto { width: 18px; height: 18px; flex: none; border-radius: 50%; border: 1.5px solid var(--cota-2); display: grid; place-items: center;
-      transition: background-color 180ms ease, border-color 180ms ease; }
-    .avance .punto svg { opacity: 0; transform: scale(.7); transition: opacity 150ms ease, transform 200ms var(--ease-out); }
-    .avance li.ok .punto { background: var(--verde); border-color: var(--verde); }
-    .avance li.ok .punto svg { opacity: 1; transform: none; }
-    .avance .cuenta { margin-left: auto; font-family: var(--f-mono); font-size: 12px; color: var(--tinta-3); }
-    .avance li.error .cuenta { color: var(--rojo); }
-    .riel .enviar { margin-top: 14px; }
-    .riel .err { margin-top: 8px; }
+     
+    .campo { display: grid; grid-template-columns: 38px 1fr; column-gap: 12px; margin-bottom: 16px; }
+    .campo:last-child { margin-bottom: 0; }
+    .campo > .material-symbols-outlined { grid-row: span 3; padding-top: 26px; }
+    .campo label.titulo { font-weight: 700; margin-bottom: 6px; display: block; }
+    .campo label.titulo .req { color: var(--error); }
+    .campo label.titulo .opc { font-weight: 400; color: var(--gris); }
+    .fila-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    input[type=text], input[type=email], input[type=tel], select, textarea {
+      width: 100%; padding: 10px 12px; font: inherit; color: var(--texto);
+      border: 1px solid var(--borde); border-radius: 8px; background: #fff;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: none; border-color: var(--azul-2); box-shadow: 0 0 0 3px rgba(30,79,216,.15);
+    }
+    select:disabled { background: #F2F4F8; color: var(--gris); }
+    textarea { resize: vertical; min-height: 80px; }
+    .ayuda { font-size: 13px; color: var(--gris); margin-top: 4px; }
+    .msg { font-size: 13px; color: var(--error); margin-top: 4px; }
+    .campo.error input, .campo.error select, .campo.error textarea { border-color: var(--error); }
+    .contador { text-align: right; font-size: 13px; color: var(--gris); margin-top: 4px; }
 
-    /* Barra inferior (solo celular) */
-    .barra { display: none; }
+    .radios { display: flex; gap: 28px; flex-wrap: wrap; padding-top: 2px; }
+    .radios label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+    .radios input { width: 20px; height: 20px; accent-color: var(--azul-2); }
 
-    /* ============================== Modal de progreso ============================== */
-    .velo { position: fixed; inset: 0; z-index: 2000; display: grid; place-items: center; padding: 16px;
-      background: rgba(14, 27, 61, .42); opacity: 0; pointer-events: none; transition: opacity 200ms ease; }
-    .velo.abierto { opacity: 1; pointer-events: auto; }
-    .modal { width: min(400px, 100%); background: var(--papel); border-radius: var(--r-lg); box-shadow: var(--sombra-alta); padding: 24px;
-      transform: scale(.96); opacity: 0; transition: transform 220ms var(--ease-out), opacity 180ms var(--ease-out); }
-    .velo.abierto .modal { transform: none; opacity: 1; }
-    .modal h3 { font-size: 19px; font-weight: 700; }
-    .pasos { list-style: none; margin: 16px 0 0; padding: 0; display: grid; gap: 10px; font-size: 14.5px; }
-    .pasos li { display: flex; align-items: center; gap: 10px; color: var(--tinta-3); }
-    .pasos li.hecho { color: var(--tinta); }
-    .pasos li.actual { color: var(--tinta); font-weight: 600; }
-    .marca { width: 18px; height: 18px; flex: none; border-radius: 50%; border: 1.5px solid var(--cota-2); display: grid; place-items: center; }
-    .pasos li.hecho .marca { background: var(--verde); border-color: var(--verde); }
-    .pasos li.actual .marca { border-color: var(--tinta); border-top-color: transparent; animation: girar .7s linear infinite; }
+     
+    #mapa { height: 320px; border-radius: 10px; border: 1px solid var(--borde); margin: 10px 0; z-index: 0; }
+    .acciones-mapa { display: flex; gap: 10px; flex-wrap: wrap; }
+    .estado-coords { font-size: 13px; margin-top: 6px; color: var(--gris); }
+    .estado-coords.ok { color: var(--ok); font-weight: 600; }
+
+     
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
+      font: inherit; font-weight: 700; border-radius: 8px; padding: 10px 16px;
+      border: 1px solid var(--azul-2); background: #fff; color: var(--azul-2);
+    }
+    .btn .material-symbols-outlined { font-size: 20px; color: inherit; }
+    .btn:hover { background: var(--azul-claro); }
+    .btn-enviar { background: #111; color: #fff; border-color: #111; padding: 12px 22px; font-size: 16px; }
+    .btn-enviar:hover { background: #333; }
+    .btn-primario { background: var(--azul-2); color: #fff; }
+    .btn-primario:hover { background: var(--azul); }
+
+     
+    .zona-archivos { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+    .lista-archivos { list-style: none; padding: 0; margin: 12px 0 0; display: flex; flex-direction: column; gap: 8px; }
+    .lista-archivos li {
+      display: flex; align-items: center; gap: 10px; padding: 6px 8px;
+      border: 1px solid var(--borde); border-radius: 8px; font-size: 14px;
+    }
+    .lista-archivos img, .lista-archivos .pdf {
+      width: 42px; height: 42px; object-fit: cover; border-radius: 6px; background: var(--azul-claro);
+      display: grid; place-items: center; flex-shrink: 0;
+    }
+    .lista-archivos .nombre { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .lista-archivos button { border: none; background: none; cursor: pointer; color: var(--gris); }
+
+    .card.evidencia .card-head { background: #E8F7F0; }
+    .card.confirmacion .card-head { background: #FFF1E8; }
+    .card.detalle .card-head { background: #EFEAFD; }
+    .check { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; margin-bottom: 16px; }
+    .check input { width: 20px; height: 20px; margin-top: 1px; accent-color: var(--azul-2); }
+
+     
+    .banner {
+      border-radius: 10px; padding: 12px 16px; margin-bottom: 18px;
+      background: #FDECEA; color: #8A1C14; border: 1px solid #F5C2BD;
+    }
+    .banner ul { margin: 6px 0 0; padding-left: 20px; }
+    .cargando, .exito { text-align: center; padding: 60px 20px; }
+    .exito .card-body { padding: 40px 24px; }
+    .exito .icono-ok { font-size: 64px; color: var(--ok); }
+    .exito .id { font-size: 32px; font-weight: 800; color: var(--azul); margin: 8px 0 4px; }
+
+    #overlay {
+      position: fixed; inset: 0; background: rgba(11,42,140,.45); z-index: 1000;
+      display: grid; place-items: center; color: #fff; font-size: 18px; font-weight: 700;
+    }
+    .spinner {
+      width: 48px; height: 48px; border: 5px solid rgba(255,255,255,.35); border-top-color: #fff;
+      border-radius: 50%; animation: girar 0.9s linear infinite; margin: 0 auto 14px;
+    }
     @keyframes girar { to { transform: rotate(360deg); } }
-    .modal .alerta { margin-top: 16px; padding: 12px 14px; border-radius: var(--r-sm); background: var(--rojo-50); color: var(--rojo); font-size: 14px; }
-    .modal .acciones { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
-
-    /* ============================== Éxito ============================== */
-    .exito { max-width: 520px; margin: 32px auto 64px; padding: 0 20px; }
-    .exito .tarjeta { background: var(--papel); border: 1px solid var(--cota); border-radius: var(--r-lg); box-shadow: var(--sombra); padding: 32px 28px; text-align: center; }
-    .exito svg.check { width: 56px; height: 56px; }
-    .exito svg.check circle { fill: var(--verde-50); }
-    .exito svg.check path { fill: none; stroke: var(--verde); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round;
-      stroke-dasharray: 24; stroke-dashoffset: 24; transition: stroke-dashoffset 420ms var(--ease-out) 120ms; }
-    .exito.visible svg.check path { stroke-dashoffset: 0; }
-    .exito h2 { font-size: 26px; font-weight: 700; margin-top: 14px; }
-    .ticket { display: inline-flex; align-items: center; gap: 6px; margin-top: 18px; padding: 6px 6px 6px 16px; border-radius: 12px; background: var(--plano); border: 1px dashed var(--cota-2); }
-    .ticket .id { font-family: var(--f-mono); font-size: 24px; font-weight: 500; letter-spacing: .02em; }
-    .exito p { margin-top: 14px; color: var(--tinta-2); }
-
-    /* ============================== Responsive ============================== */
-    @media (max-width: 1023px) {
-      .lienzo { grid-template-columns: 1fr; padding-bottom: 110px; }
-      .riel { position: static; }
-      .riel .enviar { display: none; }
-      .barra {
-        display: flex; align-items: center; gap: 12px; position: fixed; left: 0; right: 0; bottom: 0; z-index: 1500;
-        padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); background: rgba(255,255,255,.94);
-        backdrop-filter: saturate(1.4) blur(12px); -webkit-backdrop-filter: saturate(1.4) blur(12px); border-top: 1px solid var(--cota);
-      }
-      .barra .resumen { flex: 1; min-width: 0; font-size: 13px; line-height: 1.3; }
-      .barra .resumen b { display: block; font-size: 14px; }
-      .barra .btn-senal { min-height: 48px; padding: 0 20px; }
-    }
-    @media (max-width: 640px) {
-      .cabecera .in { padding: 22px 16px 24px; }
-      .lienzo { padding: 16px 12px 110px; gap: 16px; }
-      .bloque { padding: 18px 16px 20px; border-radius: var(--r); }
-      .rejilla { grid-template-columns: 1fr 1fr; }
-      .c2 { grid-column: span 1; } .c3, .c4, .c6, .m2 { grid-column: 1 / -1; }
-      .opciones { grid-template-columns: 1fr; }
-      .herramientas { grid-template-columns: 1fr auto; }
-      .herramientas .gps { grid-column: 1 / -1; }
-      #mapa { height: 260px; }
-      .teams { max-width: none; }
-    }
-
-    /* ============================== Tema de colores (referencia) ============================== */
-    .cabecera { background: linear-gradient(100deg, #0A1FC2 0%, #1E3EFF 55%, #3B6BFF 100%); }
-    .cabecera .in { position: relative; }
-    .eyebrow { color: #9FE6FF; }
-    .logo { position: absolute; top: 50%; right: 20px; transform: translateY(-50%); height: 44px; width: auto; }
-    .paso { background: var(--ruta); border-color: var(--ruta); color: #fff; font-weight: 500; }
-    #b-caso .paso { background: var(--rosa); border-color: var(--rosa); }
-    #b-evidencia .paso { background: var(--verde); border-color: var(--verde); }
-    .check input:checked { background: var(--ruta); border-color: var(--ruta); }
-    .riel-card .check input:checked { background: var(--naranja); border-color: var(--naranja); }
-    .placa { background: linear-gradient(135deg, #0A1FC2, #2A55FF); }
-    .placa-pie .pin { color: #9FE6FF; }
-    @media (max-width: 640px) { .logo { position: static; order: -1; transform: none; height: 30px; margin-bottom: 6px; } }
+    [hidden] { display: none !important; }
   </style>
 </head>
 <body>
-  <header class="cabecera">
-    <div class="in">
-      <img class="logo" src="data:image/png;base64,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" alt="Entel" onerror="this.remove()">
-      <div>
-        <div class="eyebrow">Registro de Casos</div>
-        <h1 class="display">Sin Cobertura / Sin Factibilidad</h1>
-        <p>Mesa de Soporte de Direcciones</p>
+
+<header>
+  <h1>
+    Registro de casos
+    <span class="sub">sin cobertura / sin factibilidad</span>
+    <span class="mesa">Mesa de Soporte de Direcciones</span>
+  </h1>
+  <div class="separador"></div>
+  <p>Tu información nos ayuda a resolver más rápido y a brindar una mejor experiencia a nuestros clientes.</p>
+  <div class="logo">
+    
+  </div>
+</header>
+
+<main>
+  <div id="cargando" class="cargando">
+    <div class="spinner" style="border-color:#D5DBEA;border-top-color:#1E4FD8"></div>
+    Cargando formulario…
+  </div>
+
+  <div id="bannerErrores" class="banner" hidden></div>
+
+  <form id="form" novalidate hidden>
+    <div class="grid">
+
+      
+      <div class="col">
+
+        
+        <section class="card">
+          <div class="card-head"><span class="num">1</span><h2>Información del asesor</h2></div>
+          <div class="card-body">
+            <div class="campo" data-campo="canal">
+              <span class="material-symbols-outlined">groups</span>
+              <label class="titulo" for="canal">Canal <span class="req">*</span></label>
+              <select id="canal"></select>
+              <div class="msg"></div>
+            </div>
+            <div class="campo" data-campo="dniAsesor">
+              <span class="material-symbols-outlined">badge</span>
+              <label class="titulo" for="dniAsesor">DNI del asesor <span class="req">*</span></label>
+              <input type="text" id="dniAsesor" inputmode="numeric" placeholder="Ingresa tu DNI" maxlength="12">
+              <div class="msg"></div>
+            </div>
+            <label class="check" style="margin:0 0 0 50px">
+              <input type="checkbox" id="recordarAsesor" checked>
+              <span class="ayuda" style="margin:0">Recordar mis datos en este equipo</span>
+            </label>
+          </div>
+        </section>
+
+        
+        <section class="card">
+          <div class="card-head"><span class="num">2</span><h2>Información del cliente</h2></div>
+          <div class="card-body">
+            <div class="campo" data-campo="documentoCliente">
+              <span class="material-symbols-outlined">contact_page</span>
+              <label class="titulo" for="documentoCliente">DNI / RUC del cliente <span class="req">*</span></label>
+              <input type="text" id="documentoCliente" inputmode="numeric" placeholder="8 dígitos (DNI) u 11 (RUC)" maxlength="11">
+              <div class="msg"></div>
+            </div>
+          </div>
+        </section>
+
+        
+        <section class="card">
+          <div class="card-head"><span class="num">3</span><h2>Información de la dirección</h2></div>
+          <div class="card-body">
+            <div class="campo" data-campo="departamento">
+              <span class="material-symbols-outlined">location_on</span>
+              <label class="titulo" for="departamento">Departamento <span class="req">*</span></label>
+              <select id="departamento"></select>
+              <div class="msg"></div>
+            </div>
+            <div class="campo" data-campo="provincia">
+              <span class="material-symbols-outlined">location_on</span>
+              <label class="titulo" for="provincia">Provincia <span class="req">*</span></label>
+              <select id="provincia" disabled></select>
+              <div class="msg"></div>
+            </div>
+            <div class="campo" data-campo="distrito">
+              <span class="material-symbols-outlined">location_on</span>
+              <label class="titulo" for="distrito">Distrito <span class="req">*</span></label>
+              <select id="distrito" disabled></select>
+              <div class="msg"></div>
+            </div>
+            <div class="campo" data-campo="direccion">
+              <span class="material-symbols-outlined">signpost</span>
+              <label class="titulo" for="direccion">Dirección completa <span class="req">*</span></label>
+              <textarea id="direccion" placeholder="Pega aquí la dirección normalizada de One Touch, tal como aparece en el sistema"></textarea>
+              <div class="ayuda">Cópiala exactamente como la muestra One Touch, sin modificarla.</div>
+              <div class="contador"><span id="contadorDir">0</span> / <span id="maxDir">250</span></div>
+              <div class="msg"></div>
+            </div>
+            <div class="campo" data-campo="referencia">
+              <span class="material-symbols-outlined">info</span>
+              <label class="titulo" for="referencia">Referencia <span class="opc">(opcional)</span></label>
+              <input type="text" id="referencia" placeholder="Ej.: Frente al parque, a media cuadra del mercado" maxlength="200">
+              <div class="msg"></div>
+            </div>
+          </div>
+        </section>
       </div>
-    </div>
-  </header>
 
-  <form id="form" novalidate autocomplete="on">
-    <input class="sr-only" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
-    <main class="lienzo">
-      <div class="columna">
-        <p class="leyenda">Los campos con <span class="req" aria-hidden="true">*</span> son obligatorios.</p>
+      
+      <div class="col">
 
-        <!-- 01 · Tus datos -->
-        <section class="bloque" id="b-asesor" data-bloque="asesor" aria-labelledby="t-asesor">
-          <div class="bloque-cab"><span class="paso">01</span><h2 class="display" id="t-asesor">Tus datos</h2><span class="bloque-ok">✓ Completo</span></div>
-          <div class="rejilla">
-            <div class="field c3"><label class="label" for="canal">Canal de venta<span class="req" aria-hidden="true">*</span></label><select class="select" id="canal" name="canal" required></select></div>
-            <div class="field c3"><label class="label" for="codigoAsesor">Código o DNI<span class="req" aria-hidden="true">*</span></label><input class="input mono" type="text" id="codigoAsesor" name="codigoAsesor" required maxlength="20" inputmode="text" autocomplete="off" placeholder="46087905"></div>
-            <div class="field c6"><label class="label" for="nombreAsesor">Nombre completo<span class="req" aria-hidden="true">*</span></label><input class="input" type="text" id="nombreAsesor" name="nombreAsesor" required maxlength="120" autocomplete="name" placeholder="Nombres y apellidos"></div>
-            <div class="field c3"><label class="label" for="correoAsesor">Correo<span class="req" aria-hidden="true">*</span></label><input class="input" type="email" id="correoAsesor" name="correoAsesor" required maxlength="120" autocomplete="email" inputmode="email" placeholder="tucorreo@empresa.com.pe"><span class="hint">Aquí te avisaremos cuando esté resuelto.</span></div>
-            <div class="field c3"><label class="label" for="telefonoAsesor">Celular<span class="req" aria-hidden="true">*</span></label><input class="input mono" type="tel" id="telefonoAsesor" name="telefonoAsesor" required maxlength="9" inputmode="numeric" autocomplete="tel-national" placeholder="9XXXXXXXX"></div>
-          </div>
-        </section>
-
-        <!-- 02 · Cliente -->
-        <section class="bloque" id="b-cliente" data-bloque="cliente" aria-labelledby="t-cliente">
-          <div class="bloque-cab"><span class="paso">02</span><h2 class="display" id="t-cliente">Cliente</h2><span class="bloque-ok">✓ Completo</span></div>
-          <div class="rejilla">
-            <div class="field c3"><label class="label" for="tipoCliente">Tipo de cliente<span class="req" aria-hidden="true">*</span></label><select class="select" id="tipoCliente" name="tipoCliente" required></select></div>
-            <div class="field c3"><label class="label" for="dniCliente">DNI del cliente<span class="req" aria-hidden="true">*</span></label><input class="input mono" type="text" id="dniCliente" name="dniCliente" required maxlength="8" inputmode="numeric" autocomplete="off" placeholder="12345678"></div>
-            <div class="field c6"><label class="label" for="nombreCliente">Nombre del cliente <span class="opt">(opcional)</span></label><input class="input" type="text" id="nombreCliente" name="nombreCliente" maxlength="120" autocomplete="off"></div>
-          </div>
-        </section>
-
-        <!-- 03 · Dirección -->
-        <section class="bloque" id="b-direccion" data-bloque="direccion" aria-labelledby="t-direccion">
-          <div class="bloque-cab"><span class="paso">03</span><h2 class="display" id="t-direccion">Dirección</h2><span class="bloque-ok">✓ Completo</span></div>
-          <div class="rejilla">
-            <div class="field c2 m2"><label class="label" for="departamento">Departamento<span class="req" aria-hidden="true">*</span></label><select class="select" id="departamento" name="departamento" required></select></div>
-            <div class="field c2"><label class="label" for="provincia">Provincia<span class="req" aria-hidden="true">*</span></label><select class="select" id="provincia" name="provincia" required></select></div>
-            <div class="field c2"><label class="label" for="distrito">Distrito<span class="req" aria-hidden="true">*</span></label><select class="select" id="distrito" name="distrito" required></select></div>
-
-            <div class="field c2 m2"><label class="label" for="tipoVia">Tipo de vía<span class="req" aria-hidden="true">*</span></label><select class="select" id="tipoVia" name="tipoVia" required></select></div>
-            <div class="field c4"><label class="label" for="nombreVia">Nombre de la vía<span class="req" aria-hidden="true">*</span></label><input class="input" type="text" id="nombreVia" name="nombreVia" required maxlength="120" autocomplete="off" placeholder="Los Olivos"></div>
-
-            <div class="field c2 m2">
-              <label class="label" for="numero">Número<span class="req" aria-hidden="true">*</span></label>
-              <div class="con-accion">
-                <input class="input mono" type="text" id="numero" name="numero" required maxlength="7" inputmode="numeric" autocomplete="off" placeholder="123">
-                <label class="sn" title="Sin número"><input type="checkbox" id="sinNumero"><span>S/N</span></label>
+        
+        <section class="card">
+          <div class="card-head"><span class="num">3</span><h2>Ubicación en el mapa</h2></div>
+          <div class="card-body">
+            <div class="ayuda" style="margin-top:0">
+              Usa tu ubicación si estás en el lugar, o haz clic en el mapa para marcar el inmueble.
+              Puedes arrastrar el pin para ajustarlo.
+            </div>
+            <div class="acciones-mapa" style="margin-top:10px">
+              <button type="button" class="btn" id="btnGps">
+                <span class="material-symbols-outlined">my_location</span>Usar mi ubicación
+              </button>
+              <button type="button" class="btn" id="btnBuscar">
+                <span class="material-symbols-outlined">travel_explore</span>Buscar la dirección
+              </button>
+            </div>
+            <div id="mapa"></div>
+            <div class="campo" data-campo="coords" style="grid-template-columns:1fr;margin-bottom:0">
+              <div class="fila-2">
+                <div>
+                  <label class="titulo" for="latitud">Latitud <span class="req">*</span></label>
+                  <input type="text" id="latitud" inputmode="decimal" placeholder="Ej.: -12.121900">
+                </div>
+                <div>
+                  <label class="titulo" for="longitud">Longitud <span class="req">*</span></label>
+                  <input type="text" id="longitud" inputmode="decimal" placeholder="Ej.: -77.029700">
+                </div>
               </div>
+              <div id="estadoCoords" class="estado-coords">Aún no se marca la ubicación.</div>
+              <div class="msg"></div>
             </div>
-            <div class="field c2"><label class="label" for="manzana">Manzana <span class="opt">(opc.)</span></label><input class="input mono" type="text" id="manzana" name="manzana" maxlength="10" autocomplete="off" placeholder="A"></div>
-            <div class="field c2"><label class="label" for="lote">Lote <span class="opt">(opc.)</span></label><input class="input mono" type="text" id="lote" name="lote" maxlength="10" autocomplete="off" placeholder="5"></div>
-
-            <div class="field c3"><label class="label" for="tipoEdificacion">Tipo de edificación<span class="req" aria-hidden="true">*</span></label><select class="select" id="tipoEdificacion" name="tipoEdificacion" required></select></div>
-            <div class="field c3"><label class="label" for="interior">Interior <span class="opt">(opcional)</span></label><input class="input" type="text" id="interior" name="interior" maxlength="60" autocomplete="off" placeholder="Dpto. 502, Torre A"></div>
-            <div class="field c6"><label class="label" for="referencia">Referencia <span class="opt">(opcional)</span></label><input class="input" type="text" id="referencia" name="referencia" maxlength="200" autocomplete="off" placeholder="Frente al parque, a media cuadra del mercado"></div>
+            <input type="hidden" id="origenCoordenadas">
+            <input type="hidden" id="precisionGps">
           </div>
         </section>
 
-        <!-- 04 · Ubicación -->
-        <section class="bloque" id="b-ubicacion" data-bloque="ubicacion" aria-labelledby="t-ubicacion">
-          <div class="bloque-cab"><span class="paso">04</span><h2 class="display" id="t-ubicacion">Ubicación<span class="req" aria-hidden="true">*</span></h2><span class="bloque-ok">✓ Marcada</span></div>
-          <p class="hint" style="margin:-8px 0 14px">Si estás en el lugar, usa tu ubicación. Si no, busca la dirección o toca el mapa. Puedes arrastrar el pin para ajustarlo.</p>
-          <div class="herramientas">
-            <button type="button" class="btn gps" id="btnGps">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
-              <span>Usar mi ubicación</span>
+        
+        <section class="card detalle">
+          <div class="card-head"><span class="num">4</span><h2>Detalle del caso</h2></div>
+          <div class="card-body">
+            <div class="campo" data-campo="tipoCaso">
+              <span class="material-symbols-outlined">warning</span>
+              <label class="titulo">Tipo de caso <span class="req">*</span></label>
+              <div class="radios" id="tipoCasoRadios"></div>
+              <div class="msg"></div>
+            </div>
+          </div>
+        </section>
+
+        
+        <section class="card evidencia">
+          <div class="card-head"><span class="num">5</span><h2>Evidencia</h2></div>
+          <div class="card-body">
+            <div class="campo" data-campo="archivos">
+              <span class="material-symbols-outlined">image</span>
+              <label class="titulo">Captura de pantalla <span class="req">*</span></label>
+              <div class="zona-archivos">
+                <button type="button" class="btn" id="btnArchivo">
+                  <span class="material-symbols-outlined">upload_file</span>Agregar archivo
+                </button>
+                <span class="ayuda" id="ayudaArchivos">Puedes adjuntar hasta 5 archivos (imágenes o PDF).</span>
+              </div>
+              <input type="file" id="inputArchivo" accept="image/*,application/pdf,.heic" multiple hidden>
+              <ul class="lista-archivos" id="listaArchivos"></ul>
+              <div class="msg"></div>
+            </div>
+          </div>
+        </section>
+
+        
+        <section class="card confirmacion">
+          <div class="card-head"><span class="num">6</span><h2>Confirmación</h2></div>
+          <div class="card-body">
+            <div class="campo" data-campo="confirmacion" style="grid-template-columns:1fr">
+              <label class="check" style="margin-bottom:4px">
+                <input type="checkbox" id="confirmacion">
+                <span>Confirmo que la información registrada es correcta. <span style="color:var(--error)">*</span></span>
+              </label>
+              <div class="msg"></div>
+            </div>
+            <button type="submit" class="btn btn-enviar">
+              Enviar <span class="material-symbols-outlined">arrow_forward</span>
             </button>
-            <input class="input" type="search" id="qMapa" placeholder="Buscar: Av. Los Olivos 123" aria-label="Buscar dirección en el mapa" autocomplete="off">
-            <button type="button" class="btn" id="btnBuscar">Buscar</button>
           </div>
-          <ul class="resultados cerrado" id="resultados" aria-label="Resultados de búsqueda"></ul>
-          <div id="mapa" role="application" aria-label="Mapa: toca para marcar el inmueble"></div>
-          <div class="ubic-estado" id="estadoUbicacion" aria-live="polite">Aún no marcas la ubicación.</div>
-          <details class="coords">
-            <summary>Ingresar coordenadas manualmente</summary>
-            <div class="rejilla">
-              <div class="field c3"><label class="label" for="latitud">Latitud</label><input class="input mono" type="text" id="latitud" name="latitud" inputmode="decimal" placeholder="-12.121900"></div>
-              <div class="field c3"><label class="label" for="longitud">Longitud</label><input class="input mono" type="text" id="longitud" name="longitud" inputmode="decimal" placeholder="-77.029700"></div>
-            </div>
-          </details>
-        </section>
-
-        <!-- 05 · El caso -->
-        <section class="bloque" id="b-caso" data-bloque="caso" aria-labelledby="t-caso">
-          <div class="bloque-cab"><span class="paso">05</span><h2 class="display" id="t-caso">El caso</h2><span class="bloque-ok">✓ Completo</span></div>
-          <div class="field">
-            <span class="label" id="lblTipoCaso">¿Qué está pasando?<span class="req" aria-hidden="true">*</span></span>
-            <div class="opciones" id="tipoCaso" role="radiogroup" aria-labelledby="lblTipoCaso" aria-required="true"></div>
-          </div>
-          <div class="field" style="margin-top:16px">
-            <label class="label" for="descripcion">Describe el caso<span class="req" aria-hidden="true">*</span></label>
-            <textarea class="textarea" id="descripcion" name="descripcion" required maxlength="500" placeholder="Qué muestra One Touch / APP y cualquier dato que ayude a la Mesa"></textarea>
-            <span class="hint mono" style="text-align:right"><span id="contador">0</span>/500</span>
-          </div>
-        </section>
-
-        <!-- 06 · Evidencia -->
-        <section class="bloque" id="b-evidencia" data-bloque="evidencia" aria-labelledby="t-evidencia">
-          <div class="bloque-cab"><span class="paso">06</span><h2 class="display" id="t-evidencia">Evidencia<span class="req" aria-hidden="true">*</span></h2><span class="bloque-ok">✓ Adjunta</span></div>
-          <label class="soltar" id="soltar">
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color:var(--tinta-2)"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
-            <strong id="soltarTitulo">Adjunta una captura de pantalla</strong>
-            <span class="hint">Toca para elegir, arrástrala aquí o pégala con Ctrl+V · Hasta 5 archivos · PNG, JPG o PDF de hasta 5 MB</span>
-            <input type="file" id="archivos" class="sr-only" multiple accept="image/png,image/jpeg,image/webp,application/pdf">
-          </label>
-          <ul class="archivos" id="listaArchivos"></ul>
         </section>
       </div>
-
-      <!-- Riel: revisión y envío -->
-      <aside class="riel" aria-label="Revisión del caso">
-        <div class="placa" aria-live="polite" aria-label="Dirección compuesta">
-          <div class="placa-in">
-            <span class="placa-tipo" id="plTipo">Dirección</span>
-            <div class="placa-via display vacia" id="plVia">Tu dirección aparecerá aquí</div>
-            <div class="placa-extra" id="plExtra"></div>
-            <div class="placa-lugar" id="plLugar">Distrito · Provincia</div>
-            <div class="placa-pie"><span id="plUbigeo">UBIGEO ——————</span><span id="plCoord">Sin ubicación</span></div>
-          </div>
-        </div>
-
-        <div class="riel-card">
-          <h2>Antes de enviar</h2>
-          <ol class="avance" id="avance"></ol>
-          <div style="margin-top:14px; padding-top:14px; border-top:1px solid var(--cota)">
-            <label class="check"><input type="checkbox" id="confirmacion" required> <span>Revisé los datos y son correctos.<span class="req" aria-hidden="true">*</span></span></label>
-            <p class="err hidden" id="err-confirmacion"></p>
-          </div>
-          <button type="submit" class="btn btn-senal btn-block enviar" id="btnEnviar">
-            Enviar caso
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-          </button>
-        </div>
-      </aside>
-    </main>
-
-    <!-- Barra inferior en celular -->
-    <div class="barra">
-      <div class="resumen" id="barraResumen"><b>Faltan datos</b><span class="muted">Completa los 6 pasos</span></div>
-      <button type="submit" class="btn btn-senal" id="btnEnviarMovil">Enviar caso</button>
     </div>
   </form>
 
-  <!-- Pantalla de éxito -->
-  <section class="exito hidden" id="exito" aria-live="polite">
-    <div class="tarjeta">
-      <svg class="check" viewBox="0 0 56 56" aria-hidden="true"><circle cx="28" cy="28" r="28"/><path d="M19 29l6 6 12-13"/></svg>
-      <h2 class="display">Caso enviado</h2>
-      <div class="ticket">
-        <span class="id" id="exitoId"></span>
-        <button type="button" class="btn btn-ghost btn-icon" id="btnCopiar" aria-label="Copiar número de caso" title="Copiar">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a1 1 0 0 1 1-1h10"/></svg>
+  
+  <section id="exito" class="exito" hidden>
+    <div class="card" style="max-width:520px;margin:0 auto">
+      <div class="card-body">
+        <span class="material-symbols-outlined icono-ok">check_circle</span>
+        <h2 style="margin:10px 0 0">Tu caso fue registrado</h2>
+        <div class="id" id="idCaso"></div>
+        <p class="ayuda" style="font-size:15px">
+          Guarda este código para hacer seguimiento. La Mesa de Soporte de Direcciones
+          realizará la validación correspondiente.
+        </p>
+        <button type="button" class="btn btn-primario" id="btnOtro" style="margin-top:12px">
+          <span class="material-symbols-outlined">add</span>Registrar otro caso
         </button>
       </div>
-      <p id="exitoMsg"></p>
-      <button type="button" class="btn btn-tinta" id="btnOtro" style="margin-top:22px">Reportar otro caso</button>
     </div>
   </section>
+</main>
 
-  <!-- Progreso de envío -->
-  <div class="velo" id="velo" role="dialog" aria-modal="true" aria-labelledby="mTitulo" aria-hidden="true">
-    <div class="modal">
-      <h3 class="display" id="mTitulo">Enviando caso</h3>
-      <ul class="pasos" id="mPasos"></ul>
-      <div class="alerta hidden" id="mError" role="alert"></div>
-      <div class="acciones hidden" id="mAcciones">
-        <button type="button" class="btn" id="mCerrar">Volver al formulario</button>
-        <button type="button" class="btn btn-tinta" id="mReintentar">Reintentar</button>
-      </div>
-    </div>
-  </div>
+<div id="overlay" hidden>
+  <div style="text-align:center"><div class="spinner"></div>Enviando caso…</div>
+</div>
 
-  <script>window.BOOT = <?!= bootstrapJson ?>;</script>
-  <?!= include_('UbigeoData') ?>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-  <?!= include_('Common') ?>
-  <?!= include_('RegistroJs') ?>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script>
+  
+  
+  
+  let DATOS = null;
+  let mapa = null;
+  let marcador = null;
+  let archivos = [];            
+  const CENTRO_PERU = [-9.19, -75.02];
+  const CLAVE_ASESOR = 'msd_asesor';
+  const CAMPOS_ASESOR = ['canal', 'dniAsesor'];
+  const $ = id => document.getElementById(id);
+
+  const ICONO = L.icon({
+    iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
+    iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
+    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+    iconSize: [25, 41], iconAnchor: [12, 41], shadowSize: [41, 41]
+  });
+
+  
+  
+  
+  window.addEventListener('load', () => {
+    google.script.run
+      .withSuccessHandler(iniciar)
+      .withFailureHandler(err => {
+        $('cargando').innerHTML = 'No se pudo cargar el formulario. Recarga la página.<br><small>' + err.message + '</small>';
+      })
+      .obtenerDatosIniciales();
+  });
+
+  function iniciar(datos) {
+    DATOS = datos;
+    llenarSelect('canal', datos.listas['Canal']);
+    llenarSelect('departamento', ordenar(Object.keys(datos.ubigeo)));
+    llenarSelect('provincia', []);
+    llenarSelect('distrito', []);
+
+    $('tipoCasoRadios').innerHTML = (datos.listas['Tipo de caso'] || []).map(v =>
+      `<label><input type="radio" name="tipoCaso" value="${esc(v)}"> ${esc(v)}</label>`).join('');
+
+    const r = datos.reglas;
+    $('maxDir').textContent = r.maxDireccion;
+    $('direccion').maxLength = r.maxDireccion;
+    $('referencia').maxLength = r.maxReferencia;
+    $('ayudaArchivos').textContent = `Puedes adjuntar hasta ${r.maxArchivos} archivos (imágenes o PDF, máx. ${r.maxMbArchivo} MB c/u).`;
+
+    restaurarAsesor();
+    configurarEventos();
+
+    $('cargando').hidden = true;
+    $('form').hidden = false;
+    iniciarMapa();
+  }
+
+  function configurarEventos() {
+    $('departamento').addEventListener('change', alCambiarDepartamento);
+    $('provincia').addEventListener('change', alCambiarProvincia);
+    $('distrito').addEventListener('change', alCambiarDistrito);
+    $('direccion').addEventListener('input', () => $('contadorDir').textContent = $('direccion').value.length);
+    $('btnGps').addEventListener('click', usarGps);
+    $('btnBuscar').addEventListener('click', buscarDireccion);
+    $('latitud').addEventListener('change', alEscribirCoordenadas);
+    $('longitud').addEventListener('change', alEscribirCoordenadas);
+    $('btnArchivo').addEventListener('click', () => $('inputArchivo').click());
+    $('inputArchivo').addEventListener('change', alSeleccionarArchivos);
+    $('form').addEventListener('submit', enviar);
+    $('btnOtro').addEventListener('click', nuevoCaso);
+
+    
+    ['dniAsesor', 'documentoCliente'].forEach(id =>
+      $(id).addEventListener('input', e => e.target.value = e.target.value.replace(/\D/g, '')));
+
+    
+    document.querySelectorAll('#form input, #form select, #form textarea').forEach(el => {
+      el.addEventListener('input', () => limpiarError(el.closest('[data-campo]')));
+      el.addEventListener('change', () => limpiarError(el.closest('[data-campo]')));
+    });
+  }
+
+  
+  
+  
+  function alCambiarDepartamento() {
+    const dep = $('departamento').value;
+    llenarSelect('provincia', dep ? ordenar(Object.keys(DATOS.ubigeo[dep])) : []);
+    llenarSelect('distrito', []);
+    $('provincia').disabled = !dep;
+    $('distrito').disabled = true;
+  }
+
+  function alCambiarProvincia() {
+    const dep = $('departamento').value, prov = $('provincia').value;
+    const s = $('distrito');
+    s.innerHTML = '';
+    s.add(new Option('Selecciona una opción', ''));
+    if (prov) {
+      DATOS.ubigeo[dep][prov]
+        .slice()
+        .sort((a, b) => a[0].localeCompare(b[0], 'es'))
+        .forEach(([nombre, codigo, lat, lon]) => {
+          const o = new Option(nombre, codigo);
+          o.dataset.lat = lat; o.dataset.lon = lon;
+          s.add(o);
+        });
+    }
+    s.disabled = !prov;
+  }
+
+  function alCambiarDistrito() {
+    const o = $('distrito').selectedOptions[0];
+    if (!o || !o.value || !o.dataset.lat) return;
+    if (!marcador) mapa.setView([Number(o.dataset.lat), Number(o.dataset.lon)], 15);
+  }
+
+  
+  
+  
+  function iniciarMapa() {
+    mapa = L.map('mapa').setView(CENTRO_PERU, 5);
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap'
+    }).addTo(mapa);
+    mapa.on('click', e => ponerPunto(e.latlng.lat, e.latlng.lng, 'Mapa'));
+    setTimeout(() => mapa.invalidateSize(), 200);
+  }
+
+  function ponerPunto(lat, lon, origen, precision) {
+    lat = Number(Number(lat).toFixed(6));
+    lon = Number(Number(lon).toFixed(6));
+    if (!marcador) {
+      marcador = L.marker([lat, lon], { draggable: true, icon: ICONO }).addTo(mapa);
+      marcador.on('dragend', ev => {
+        const p = ev.target.getLatLng();
+        ponerPunto(p.lat, p.lng, 'Mapa');
+      });
+    } else {
+      marcador.setLatLng([lat, lon]);
+    }
+    $('latitud').value = lat;
+    $('longitud').value = lon;
+    $('origenCoordenadas').value = origen;
+    $('precisionGps').value = (origen === 'GPS' && precision) ? precision : '';
+
+    const textos = {
+      GPS: `Ubicación tomada del GPS${precision ? ' (precisión aprox. ' + precision + ' m)' : ''}.`,
+      Mapa: 'Ubicación marcada en el mapa.',
+      Manual: 'Coordenadas ingresadas manualmente.'
+    };
+    $('estadoCoords').textContent = textos[origen] || '';
+    $('estadoCoords').className = 'estado-coords ok';
+    $('estadoCoords').style.color = '';
+    limpiarError(document.querySelector('[data-campo="coords"]'));
+  }
+
+  function usarGps() {
+    if (!navigator.geolocation) {
+      avisoCoords('Este navegador no permite obtener la ubicación. Marca el punto en el mapa.');
+      return;
+    }
+    const btn = $('btnGps');
+    btn.disabled = true;
+    avisoCoords('Obteniendo ubicación…', true);
+    navigator.geolocation.getCurrentPosition(pos => {
+      btn.disabled = false;
+      const { latitude, longitude, accuracy } = pos.coords;
+      ponerPunto(latitude, longitude, 'GPS', Math.round(accuracy));
+      mapa.setView([latitude, longitude], 18);
+    }, err => {
+      btn.disabled = false;
+      const motivos = {
+        1: 'No se dio permiso de ubicación.',
+        2: 'No se pudo determinar la ubicación.',
+        3: 'La ubicación tardó demasiado.'
+      };
+      avisoCoords((motivos[err.code] || 'No se pudo obtener la ubicación.') + ' Marca el punto en el mapa.');
+    }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+  }
+
+  function buscarDireccion() {
+    const dist = $('distrito').selectedOptions[0];
+    if (!$('direccion').value.trim() || !dist || !dist.value) {
+      avisoCoords('Completa el distrito y la dirección para buscar.');
+      return;
+    }
+    const q = [$('direccion').value.trim(), dist.textContent, $('provincia').value, 'Perú'].join(', ');
+    avisoCoords('Buscando la dirección…', true);
+    fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=pe&q=' + encodeURIComponent(q))
+      .then(r => r.json())
+      .then(res => {
+        if (res && res.length) {
+          ponerPunto(res[0].lat, res[0].lon, 'Mapa');
+          mapa.setView([Number(res[0].lat), Number(res[0].lon)], 18);
+          $('estadoCoords').textContent = 'Ubicación aproximada encontrada: verifica y arrastra el pin al inmueble exacto.';
+        } else {
+          if (dist.dataset.lat) mapa.setView([Number(dist.dataset.lat), Number(dist.dataset.lon)], 15);
+          avisoCoords('No se encontró la dirección exacta. Marca el punto manualmente en el mapa.');
+        }
+      })
+      .catch(() => avisoCoords('No se pudo buscar la dirección. Marca el punto manualmente en el mapa.'));
+  }
+
+  function alEscribirCoordenadas() {
+    
+    const pegado = $('latitud').value.split(',');
+    if (pegado.length === 2 && !$('longitud').value) {
+      $('latitud').value = pegado[0].trim();
+      $('longitud').value = pegado[1].trim();
+    }
+    const lat = parseFloat($('latitud').value), lon = parseFloat($('longitud').value);
+    if (!isNaN(lat) && !isNaN(lon)) {
+      ponerPunto(lat, lon, 'Manual');
+      mapa.setView([lat, lon], 17);
+    }
+  }
+
+  function avisoCoords(texto, neutro) {
+    $('estadoCoords').textContent = texto;
+    $('estadoCoords').className = 'estado-coords';
+    $('estadoCoords').style.color = neutro ? '' : 'var(--error)';
+  }
+
+  
+  
+  
+  async function alSeleccionarArchivos(e) {
+    const r = DATOS.reglas;
+    const seleccion = Array.from(e.target.files);
+    e.target.value = '';
+    const campo = document.querySelector('[data-campo="archivos"]');
+    limpiarError(campo);
+
+    for (const f of seleccion) {
+      if (archivos.length >= r.maxArchivos) {
+        marcarError(campo, `Máximo ${r.maxArchivos} archivos.`);
+        break;
+      }
+      const tipo = f.type || (/\.heic$/i.test(f.name) ? 'image/heic' : '');
+      if (!r.tiposPermitidos.includes(tipo)) {
+        marcarError(campo, `"${f.name}" no es una imagen (JPG, PNG, WEBP, HEIC) o PDF.`);
+        continue;
+      }
+      try {
+        const procesado = await procesarArchivo(f, tipo);
+        if (procesado.tamano > r.maxMbArchivo * 1024 * 1024) {
+          marcarError(campo, `"${f.name}" supera ${r.maxMbArchivo} MB.`);
+          continue;
+        }
+        archivos.push(procesado);
+      } catch (err) {
+        marcarError(campo, `No se pudo leer "${f.name}".`);
+      }
+    }
+    pintarArchivos();
+  }
+
+   
+  function procesarArchivo(file, tipo) {
+    const comprimible = ['image/jpeg', 'image/png', 'image/webp'].includes(tipo) && file.size > 1.5 * 1024 * 1024;
+    if (!comprimible) {
+      return leerComoDataUrl(file).then(url => ({
+        nombre: file.name, tipo: tipo, base64: url, tamano: file.size,
+        preview: tipo.startsWith('image/') && tipo !== 'image/heic' ? url : ''
+      }));
+    }
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const urlObj = URL.createObjectURL(file);
+      img.onload = () => {
+        const max = 1920;
+        const escala = Math.min(1, max / Math.max(img.width, img.height));
+        const c = document.createElement('canvas');
+        c.width = Math.round(img.width * escala);
+        c.height = Math.round(img.height * escala);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(urlObj);
+        const url = c.toDataURL('image/jpeg', 0.82);
+        resolve({
+          nombre: file.name.replace(/\.\w+$/, '') + '.jpg', tipo: 'image/jpeg', base64: url,
+          tamano: Math.round(url.length * 3 / 4), preview: url
+        });
+      };
+      img.onerror = reject;
+      img.src = urlObj;
+    });
+  }
+
+  function leerComoDataUrl(file) {
+    return new Promise((resolve, reject) => {
+      const fr = new FileReader();
+      fr.onload = () => resolve(fr.result);
+      fr.onerror = reject;
+      fr.readAsDataURL(file);
+    });
+  }
+
+  function pintarArchivos() {
+    $('listaArchivos').innerHTML = archivos.map((a, i) => `
+      <li>
+        ${a.preview ? `<img src="${a.preview}" alt="">`
+                    : `<span class="pdf"><span class="material-symbols-outlined">description</span></span>`}
+        <span class="nombre">${esc(a.nombre)}</span>
+        <span class="ayuda" style="margin:0">${(a.tamano / 1024 / 1024).toFixed(1)} MB</span>
+        <button type="button" onclick="quitarArchivo(${i})" title="Quitar">
+          <span class="material-symbols-outlined" style="color:inherit">close</span>
+        </button>
+      </li>`).join('');
+  }
+
+  function quitarArchivo(i) {
+    archivos.splice(i, 1);
+    pintarArchivos();
+  }
+
+  
+  
+  
+  function validar() {
+    document.querySelectorAll('[data-campo].error').forEach(limpiarError);
+    const errores = [];
+    const campo = n => document.querySelector(`[data-campo="${n}"]`);
+    const vacio = id => !$(id).value.trim();
+    const error = (n, msg) => { marcarError(campo(n), msg); errores.push(campo(n)); };
+
+    [['canal', 'Selecciona el canal.'],
+     ['dniAsesor', 'Ingresa tu DNI.'],
+     ['documentoCliente', 'Ingresa el DNI o RUC del cliente.'],
+     ['departamento', 'Selecciona el departamento.'],
+     ['provincia', 'Selecciona la provincia.'],
+     ['distrito', 'Selecciona el distrito.'],
+     ['direccion', 'Ingresa la dirección completa.']
+    ].forEach(([id, msg]) => { if (vacio(id)) error(id, msg); });
+
+    if (!vacio('dniAsesor') && !/^\d{8,12}$/.test($('dniAsesor').value.trim())) {
+      error('dniAsesor', 'El DNI debe tener entre 8 y 12 dígitos.');
+    }
+    if (!vacio('documentoCliente') && !/^\d{8}$|^\d{11}$/.test($('documentoCliente').value.trim())) {
+      error('documentoCliente', 'Ingresa un DNI (8 dígitos) o un RUC (11 dígitos).');
+    }
+    if (!document.querySelector('input[name="tipoCaso"]:checked')) error('tipoCaso', 'Selecciona el tipo de caso.');
+    if (DATOS.reglas.coordenadasObligatorias && (vacio('latitud') || vacio('longitud'))) {
+      error('coords', 'Marca la ubicación en el mapa o usa tu ubicación.');
+    }
+    if (archivos.length === 0) error('archivos', 'Adjunta al menos una captura de pantalla.');
+    if (!$('confirmacion').checked) error('confirmacion', 'Debes confirmar la información.');
+
+    if (errores.length) errores[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return errores.length === 0;
+  }
+
+  function enviar(e) {
+    e.preventDefault();
+    $('bannerErrores').hidden = true;
+    if (!validar()) return;
+
+    const v = id => $(id).value.trim();
+    const datos = {
+      canal: v('canal'),
+      dniAsesor: v('dniAsesor'),
+      documentoCliente: v('documentoCliente'),
+      ubigeo: v('distrito'),
+      direccion: v('direccion'),
+      referencia: v('referencia'),
+      latitud: v('latitud') === '' ? '' : Number(v('latitud')),
+      longitud: v('longitud') === '' ? '' : Number(v('longitud')),
+      precisionGps: v('precisionGps'),
+      origenCoordenadas: v('origenCoordenadas') || 'Manual',
+      tipoCaso: document.querySelector('input[name="tipoCaso"]:checked').value,
+      archivos: archivos.map(a => ({ nombre: a.nombre, tipo: a.tipo, base64: a.base64 })),
+      confirmacion: $('confirmacion').checked
+    };
+
+    $('overlay').hidden = false;
+    google.script.run
+      .withSuccessHandler(r => {
+        $('overlay').hidden = true;
+        if (r && r.ok) {
+          guardarAsesor();
+          $('idCaso').textContent = r.idCaso;
+          $('form').hidden = true;
+          $('exito').hidden = false;
+          window.scrollTo(0, 0);
+        } else {
+          mostrarBanner((r && r.errores) || ['No se pudo registrar el caso.']);
+        }
+      })
+      .withFailureHandler(err => {
+        $('overlay').hidden = true;
+        mostrarBanner(['No se pudo enviar el caso: ' + err.message]);
+      })
+      .registrarCaso(datos);
+  }
+
+  function nuevoCaso() {
+    const asesor = {};
+    CAMPOS_ASESOR.forEach(id => asesor[id] = $(id).value);
+    $('form').reset();
+    CAMPOS_ASESOR.forEach(id => $(id).value = asesor[id]);
+    $('recordarAsesor').checked = true;
+
+    llenarSelect('provincia', []); $('provincia').disabled = true;
+    llenarSelect('distrito', []); $('distrito').disabled = true;
+    archivos = []; pintarArchivos();
+    $('contadorDir').textContent = '0';
+    if (marcador) { mapa.removeLayer(marcador); marcador = null; }
+    $('estadoCoords').textContent = 'Aún no se marca la ubicación.';
+    $('estadoCoords').className = 'estado-coords';
+    $('estadoCoords').style.color = '';
+
+    $('exito').hidden = true;
+    $('form').hidden = false;
+    window.scrollTo(0, 0);
+    setTimeout(() => { mapa.invalidateSize(); mapa.setView(CENTRO_PERU, 5); }, 100);
+  }
+
+  
+  
+  
+  function guardarAsesor() {
+    try {
+      if ($('recordarAsesor').checked) {
+        const d = {};
+        CAMPOS_ASESOR.forEach(id => d[id] = $(id).value);
+        localStorage.setItem(CLAVE_ASESOR, JSON.stringify(d));
+      } else {
+        localStorage.removeItem(CLAVE_ASESOR);
+      }
+    } catch (e) {   }
+  }
+
+  function restaurarAsesor() {
+    try {
+      const d = JSON.parse(localStorage.getItem(CLAVE_ASESOR) || 'null');
+      if (d) CAMPOS_ASESOR.forEach(id => { if (d[id]) $(id).value = d[id]; });
+    } catch (e) {   }
+  }
+
+  
+  
+  
+  function llenarSelect(id, valores) {
+    const s = $(id);
+    s.innerHTML = '';
+    s.add(new Option('Selecciona una opción', ''));
+    (valores || []).forEach(v => s.add(new Option(v, v)));
+  }
+
+  function ordenar(arr) { return arr.slice().sort((a, b) => a.localeCompare(b, 'es')); }
+
+  function marcarError(campo, msg) {
+    if (!campo) return;
+    campo.classList.add('error');
+    const m = campo.querySelector('.msg');
+    if (m) m.textContent = msg;
+  }
+
+  function limpiarError(campo) {
+    if (!campo) return;
+    campo.classList.remove('error');
+    const m = campo.querySelector('.msg');
+    if (m) m.textContent = '';
+  }
+
+  function mostrarBanner(errores) {
+    const b = $('bannerErrores');
+    b.innerHTML = '<strong>Revisa lo siguiente:</strong><ul>' +
+      errores.map(e => '<li>' + esc(e) + '</li>').join('') + '</ul>';
+    b.hidden = false;
+    window.scrollTo(0, 0);
+  }
+
+  function esc(t) {
+    return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+</script>
 </body>
 </html>

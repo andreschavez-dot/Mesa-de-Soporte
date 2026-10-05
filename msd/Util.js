@@ -1,5 +1,5 @@
 /**
- * Util.gs — Utilidades transversales.
+ * Util.js — Utilidades transversales.
  *
  * Convención de seguridad: toda función que termina en "_" es PRIVADA para
  * google.script.run (Apps Script no la expone al cliente). Solo las funciones
@@ -15,24 +15,7 @@ class AppError extends Error {
   }
 }
 
-/**
- * Envuelve cada endpoint público: los AppError se devuelven tal cual y los
- * errores inesperados se registran en Stackdriver y se devuelven genéricos,
- * para no filtrar detalles internos (IDs de archivos, stack traces) al cliente.
- */
-function endpoint_(nombre, fn) {
-  try {
-    return { ok: true, data: fn() };
-  } catch (err) {
-    if (err instanceof AppError) {
-      return { ok: false, error: err.message, codigo: err.codigo };
-    }
-    console.error(`[${nombre}]`, err && err.stack ? err.stack : err);
-    return { ok: false, error: 'Ocurrió un error inesperado. Inténtalo nuevamente o contacta a la Mesa.', codigo: 'INTERNO' };
-  }
-}
-
-/** Ejecuta fn con un lock de script (secciones críticas: correlativo, updates). */
+/** Ejecuta fn con un lock de script (secciones críticas: correlativo, fila destino). */
 function conLock_(fn, timeoutMs) {
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(timeoutMs || 20000)) {
@@ -64,61 +47,14 @@ function celdaSegura_(valor) {
   return /^[=+\-@\t\r]/.test(valor) ? "'" + valor : valor;
 }
 
-function requerido_(valor, etiqueta) {
-  if (valor === '' || valor === null || valor === undefined) {
-    throw new AppError(`El campo "${etiqueta}" es obligatorio.`);
-  }
-  return valor;
-}
-
-function enLista_(valor, lista, etiqueta) {
-  if (lista.indexOf(valor) === -1) {
-    throw new AppError(`El valor de "${etiqueta}" no es válido.`);
-  }
-  return valor;
-}
-
 function esCorreo_(s) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(s);
-}
-
-/* -------------------------------- Fechas -------------------------------- */
-
-/** google.script.run no serializa Date: siempre devolvemos ISO 8601. */
-function iso_(d) {
-  return d instanceof Date && !isNaN(d) ? d.toISOString() : '';
 }
 
 function fmtFecha_(d) {
   return d instanceof Date && !isNaN(d)
     ? Utilities.formatDate(d, Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm')
     : '';
-}
-
-/* ----------------------------- Criptografía ----------------------------- */
-
-function bytesAHex_(bytes) {
-  return bytes.map(b => ('0' + (b & 0xff).toString(16)).slice(-2)).join('');
-}
-
-/** Token aleatorio no adivinable (2 UUID v4 = 244 bits de entropía). */
-function tokenAleatorio_() {
-  return (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, '');
-}
-
-/** Comparación en tiempo constante (evita timing attacks triviales). */
-function igualSeguro_(a, b) {
-  if (typeof a !== 'string' || typeof b !== 'string' || a.length !== b.length) return false;
-  let r = 0;
-  for (let i = 0; i < a.length; i++) r |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return r === 0;
-}
-
-/* -------------------------------- Varios -------------------------------- */
-
-/** Incluye un archivo HTML del proyecto dentro de una plantilla (scriptlets). */
-function include_(nombre) {
-  return HtmlService.createHtmlOutputFromFile(nombre).getContent();
 }
 
 /** Contador con ventana de tiempo en CacheService (rate limiting). */
